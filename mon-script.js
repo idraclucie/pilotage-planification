@@ -36,6 +36,5 @@
   console.log('👤 Formateurs :', data.formateurs.length);
   console.log('🔄 Process :', data.process.length);
   console.log('🔄 Rechargement de la page dans 1 seconde...');
-
-  setTimeout(() => location.reload(), 1000);
+  console.log('✅ Restauration terminée !');
 })();
