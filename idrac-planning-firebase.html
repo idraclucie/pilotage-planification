@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilotage Pédagogique — IDRAC · ICL · IET</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+
+<!-- ✅ Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ============================================================
+  // 🔧 CONFIGURATION FIREBASE — à remplir avec vos propres valeurs
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyC4v6Uwe9_TSZ6xB0CFWYi2RqrwfAwGUIY",
+    authDomain: "pilotage-planification.firebaseapp.com",
+    databaseURL: "https://pilotage-planification-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "pilotage-planification",
+    storageBucket: "pilotage-planification.firebasestorage.app",
+    messagingSenderId: "642301937246",
+    appId: "1:642301937246:web:ce5bb9819383f355a696cf",
+    measurementId: "G-FHEBX3451N"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+  const ROOT = "idrac3";
+
+  // Expose sur window pour que le code global puisse l'utiliser
+  window._fbRef    = (path) => ref(db, ROOT + "/" + path);
+  window._fbSet    = set;
+  window._fbOnValue = onValue;
+  window._fbGet    = get;
+  window._fbRef0   = () => ref(db, ROOT);
+
+  // Lance l'initialisation une fois Firebase prêt
+  document.addEventListener("DOMContentLoaded", () => {
+    window._firebaseReady = true;
+    if (window._onFirebaseReady) window._onFirebaseReady();
+  });
+</script>
+
+<style>
+/* ── ÉCRAN DE CONNEXION ── */
+#login-screen {
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg,#0c0e14);
+  display:flex;align-items:center;justify-content:center;
+}
+#login-box {
+  background:#12151d;border:1px solid #252b3d;border-radius:16px;
+  padding:40px 36px;width:100%;max-width:380px;text-align:center;
+}
+#login-box h2 {
+  font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;
+  margin-bottom:6px;color:#e6e9f4;
+}
+#login-box p { color:#7c8399;font-size:0.85rem;margin-bottom:28px; }
+#login-pwd {
+  width:100%;background:#181c28;border:1px solid #252b3d;border-radius:10px;
+  padding:12px 16px;color:#e6e9f4;font-size:1rem;outline:none;margin-bottom:12px;
+  font-family:'DM Sans',sans-serif;transition:border-color 0.2s;
+}
+#login-pwd:focus { border-color:#7C3AED; }
+#login-btn {
+  width:100%;padding:12px;background:#7C3AED;color:#fff;border:none;
+  border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:background 0.2s;
+}
+#login-btn:hover { background:#6d28d9; }
+#login-error { color:#ff5c4a;font-size:0.8rem;margin-top:8px;min-height:18px; }
+#login-pills { display:flex;gap:6px;justify-content:center;margin-bottom:22px; }
+#app-wrapper { display:none; }
+</style>
+
+<style>
+:root {
+  --bg:#0c0e14; --surface:#12151d; --surface2:#181c28; --surface3:#1f2335;
+  --border:#252b3d; --text:#e6e9f4; --text2:#7c8399; --text3:#454c66;
+  --accent:#7C3AED; --success:#22C55E; --warning:#f5c030; --danger:#ff5c4a;
+  --idrac:#7C3AED; --icl:#2563EB; --iet:#2D8653;
+  --radius:12px; --radius-sm:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* SIDEBAR */
+#sidebar{position:fixed;top:0;left:0;width:252px;height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;}
+.sidebar-logo{padding:22px 20px 16px;border-bottom:1px solid var(--border);}
+.logo-schools{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+.school-pill{font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:0.5px;}
+.school-pill.idrac{background:rgba(124,58,237,0.15);color:var(--idrac);}
+.school-pill.icl{background:rgba(37,99,235,0.15);color:var(--icl);}
+.school-pill.iet{background:rgba(45,134,83,0.2);color:var(--iet);}
+.logo-sub{font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;}
+
+/* School filter */
+.school-filter{padding:12px 14px;border-bottom:1px solid var(--border);}
+.school-filter-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px;}
+.school-btns{display:flex;gap:4px;flex-wrap:wrap;}
+.school-btn{padding:4px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);transition:all 0.2s;font-family:'DM Sans',sans-serif;}
+.school-btn:hover{border-color:var(--text2);}
+.school-btn.active-idrac{background:rgba(124,58,237,0.15);border-color:var(--idrac);color:var(--idrac);}
+.school-btn.active-icl{background:rgba(37,99,235,0.15);border-color:var(--icl);color:var(--icl);}
+.school-btn.active-iet{background:rgba(45,134,83,0.18);border-color:var(--iet);color:var(--iet);}
+.school-btn.active-all{background:var(--surface3);border-color:var(--text2);color:var(--text);}
+
+.sidebar-nav{flex:1;padding:12px 10px;overflow-y:auto;}
+.nav-section{font-size:0.62rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:10px 10px 4px;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s;font-size:0.86rem;color:var(--text2);margin-bottom:1px;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:rgba(124,58,237,0.12);color:var(--accent);font-weight:500;}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:0.63rem;font-weight:700;padding:2px 6px;border-radius:20px;min-width:18px;text-align:center;}
+.nav-badge.warn{background:var(--warning);color:#000;}
+.nav-badge.danger{background:var(--danger);}
+.sidebar-footer{padding:14px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text3);}
+
+/* MAIN */
+#main{margin-left:252px;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(12,14,20,0.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;}
+.page-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:10px;}
+.school-tag{font-size:0.72rem;font-weight:700;padding:2px 9px;border-radius:20px;}
+.topbar-actions{display:flex;align-items:center;gap:10px;}
+
+/* BTNS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:0.83rem;font-weight:500;cursor:pointer;transition:all 0.2s;border:none;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#6d28d9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(124,58,237,0.35);}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.btn-secondary:hover{background:var(--surface3);}
+.btn-success{background:var(--success);color:#000;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-sm{padding:4px 9px;font-size:0.76rem;}
+.btn-icon{padding:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s;line-height:1;}
+.btn-icon:hover{color:var(--text);background:var(--surface3);}
+
+/* PAGES */
+.page{display:none;padding:28px;}
+.page.active{display:block;}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:18px;}
+.card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+
+/* GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+
+/* STAT CARD */
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.stat-card.blue::before{background:var(--idrac);}
+.stat-card.green::before{background:var(--success);}
+.stat-card.orange::before{background:var(--danger);}
+.stat-card.yellow::before{background:var(--warning);}
+.stat-label{font-size:0.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px;}
+.stat-value{font-family:'Syne',sans-serif;font-size:1.9rem;font-weight:800;line-height:1;}
+.stat-sub{font-size:0.75rem;color:var(--text2);margin-top:4px;}
+
+/* SCHOOL PROGRESS BARS */
+.school-progress-row{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);}
+.school-progress-row:last-child{border-bottom:none;}
+.school-progress-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.88rem;width:60px;flex-shrink:0;}
+.school-progress-bar{flex:1;height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;}
+.school-progress-fill{height:100%;border-radius:4px;transition:width 0.6s ease;}
+.school-progress-pct{font-size:0.8rem;font-weight:600;width:40px;text-align:right;flex-shrink:0;}
+.school-progress-detail{font-size:0.72rem;color:var(--text3);width:80px;flex-shrink:0;}
+
+/* PROGRESS */
+.progress-bar{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-top:3px;}
+.progress-fill{height:100%;border-radius:3px;transition:width 0.6s ease;}
+.progress-fill.blue,.progress-fill.idrac{background:var(--idrac);}
+.progress-fill.green,.progress-fill.icl{background:var(--icl);}
+.progress-fill.orange,.progress-fill.iet{background:var(--iet);}
+.progress-fill.yellow{background:var(--warning);}
+
+/* TABLES */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:0.83rem;}
+th{text-align:left;padding:9px 12px;color:var(--text2);font-size:0.69rem;text-transform:uppercase;letter-spacing:0.7px;border-bottom:1px solid var(--border);font-weight:600;}
+td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.015);}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:600;white-space:nowrap;}
+.badge-blue{background:rgba(124,58,237,0.12);color:var(--idrac);}
+.badge-green{background:rgba(34,197,94,0.15);color:var(--success);}
+.badge-orange{background:rgba(255,92,74,0.15);color:var(--danger);}
+.badge-yellow{background:rgba(245,192,48,0.15);color:var(--warning);}
+.badge-gray{background:var(--surface3);color:var(--text2);}
+.badge-idrac{background:rgba(124,58,237,0.15);color:var(--idrac);}
+.badge-icl{background:rgba(37,99,235,0.15);color:var(--icl);}
+.badge-iet{background:rgba(45,134,83,0.18);color:var(--iet);}
+
+/* FORMS */
+.form-group{margin-bottom:14px;}
+.form-label{display:block;font-size:0.78rem;color:var(--text2);margin-bottom:5px;font-weight:500;}
+.form-control{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.86rem;transition:border-color 0.2s;outline:none;}
+.form-control:focus{border-color:var(--accent);}
+.form-control option{background:var(--surface2);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+textarea.form-control{resize:vertical;min-height:72px;}
+.checkbox-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.83rem;padding:8px 12px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);}
+.checkbox-label input[type=checkbox]{width:16px;height:16px;accent-color:var(--success);cursor:pointer;}
+.ged-check{background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.2);}
+.ged-check.checked{background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.4);}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);backdrop-filter:blur(5px);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:700px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 48px rgba(0,0,0,0.6);animation:modalIn 0.22s ease;}
+@keyframes modalIn{from{opacity:0;transform:translateY(18px) scale(0.97)}to{opacity:1;transform:none}}
+.modal-lg{max-width:820px;}
+.modal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Syne',sans-serif;font-weight:700;font-size:0.97rem;}
+.modal-body{padding:22px;}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+
+/* PROCESS STEPS */
+.process-steps{display:flex;flex-direction:column;gap:0;}
+.process-step{display:flex;gap:14px;position:relative;padding-bottom:16px;}
+.process-step:last-child{padding-bottom:0;}
+.step-line{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.step-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0;border:2px solid var(--border);background:var(--surface2);color:var(--text2);position:relative;z-index:1;transition:all 0.2s;}
+.step-dot.done{background:var(--success);border-color:var(--success);color:#fff;font-size:0.8rem;}
+.step-dot.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.step-connector{width:2px;flex:1;background:var(--border);margin:2px 0;min-height:14px;}
+.step-connector.done{background:var(--success);}
+.step-content{flex:1;padding-top:2px;}
+.step-content.done{
+  background:rgba(34,197,94,0.07);
+  border:1px solid rgba(34,197,94,0.18);
+  border-radius:8px;
+  padding:8px 12px;
+  margin-bottom:2px;
+}
+.step-content.done .step-name{color:var(--success);}
+.step-content.active-step{
+  background:rgba(124,58,237,0.07);
+  border:1px solid rgba(124,58,237,0.18);
+  border-radius:8px;
+  padding:8px 12px;
+  margin-bottom:2px;
+}
+.step-name{font-size:0.83rem;font-weight:500;margin-bottom:2px;}
+.step-desc{font-size:0.73rem;color:var(--text2);}
+.step-date{font-size:0.69rem;color:var(--text3);margin-top:2px;}
+.step-ged{margin-top:6px;}
+
+/* ALERT ITEMS */
+.alert-item{padding:10px 14px;border-radius:var(--radius-sm);font-size:0.81rem;margin-bottom:8px;display:flex;align-items:flex-start;gap:9px;cursor:pointer;transition:opacity 0.2s;}
+.alert-item:hover{opacity:0.85;}
+.alert-item.urgent{background:rgba(255,92,74,0.1);border:1px solid rgba(255,92,74,0.3);color:var(--danger);}
+.alert-item.warning{background:rgba(245,192,48,0.08);border:1px solid rgba(245,192,48,0.25);color:var(--warning);}
+.alert-item.info{background:rgba(124,58,237,0.07);border:1px solid rgba(124,58,237,0.2);color:var(--accent);}
+.alert-item.success{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:var(--success);}
+
+/* TABS */
+.tabs{display:flex;gap:2px;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:0;}
+.tab{padding:7px 16px 11px;cursor:pointer;font-size:0.83rem;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.2s;font-weight:500;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* TREE: BLOCS */
+/* container types: bloc / hors-bloc / parcours */
+.bloc-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+.bloc-item.type-bloc      {border-left:3px solid var(--idrac);}
+.bloc-item.type-hors-bloc {border-left:3px solid #e07b00;}
+.bloc-item.type-parcours  {border-left:3px solid #0e9de0;}
+.ct-badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:0.68rem;font-weight:700;letter-spacing:0.3px;white-space:nowrap;flex-shrink:0;}
+.ct-bloc      {background:rgba(124,58,237,0.15); color:#a78bfa;}
+.ct-hors-bloc {background:rgba(224,123,0,0.15);  color:#e07b00;}
+.ct-parcours  {background:rgba(14,157,224,0.15);  color:#0e9de0;}
+.bloc-header.type-bloc      {background:rgba(124,58,237,0.04);}
+.bloc-header.type-hors-bloc {background:rgba(224,123,0,0.04);}
+.bloc-header.type-parcours  {background:rgba(14,157,224,0.04);}
+.bloc-header.type-bloc:hover      {background:rgba(124,58,237,0.08);}
+.bloc-header.type-hors-bloc:hover {background:rgba(224,123,0,0.08);}
+.bloc-header.type-parcours:hover  {background:rgba(14,157,224,0.08);}
+.bloc-dates.type-bloc      {border-color:rgba(124,58,237,0.3);background:rgba(124,58,237,0.06);}
+.bloc-dates.type-hors-bloc {border-color:rgba(224,123,0,0.3); background:rgba(224,123,0,0.06);}
+.bloc-dates.type-parcours  {border-color:rgba(14,157,224,0.3); background:rgba(14,157,224,0.06);}
+.bloc-header{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;transition:background 0.2s;}
+.bloc-header:hover{background:var(--surface3);}
+.bloc-toggle{font-size:0.7rem;color:var(--text3);transition:transform 0.2s;flex-shrink:0;}
+.bloc-toggle.open{transform:rotate(90deg);}
+.bloc-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;flex:1;}
+.bloc-meta{font-size:0.75rem;color:var(--text2);display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+.vol-summary{
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  padding:12px 18px;background:var(--surface2);
+  border-bottom:1px solid var(--border);
+}
+.vol-summary-label{font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px;flex-shrink:0;}
+.vol-chip{
+  display:inline-flex;flex-direction:column;align-items:center;
+  padding:5px 10px;border-radius:8px;min-width:72px;
+  background:var(--surface3);border:1px solid var(--border);
+}
+.vol-chip-type{font-size:0.62rem;font-weight:700;letter-spacing:0.5px;margin-bottom:3px;}
+.vol-chip-bar{width:100%;height:4px;border-radius:2px;background:var(--surface);overflow:hidden;margin-bottom:3px;}
+.vol-chip-fill{height:100%;border-radius:2px;transition:width 0.4s ease;}
+.vol-chip-nums{font-size:0.69rem;font-weight:600;color:var(--text);}
+.vol-chip-sub{font-size:0.62rem;color:var(--text3);}
+.vol-chip.hg   .vol-chip-type{color:var(--idrac);} .vol-chip.hg   .vol-chip-fill{background:var(--idrac);}
+.vol-chip.hgpg .vol-chip-type{color:var(--success);} .vol-chip.hgpg .vol-chip-fill{background:var(--success);}
+.vol-chip.tice .vol-chip-type{color:var(--iet);} .vol-chip.tice .vol-chip-fill{background:var(--iet);}
+.vol-chip.stag .vol-chip-type{color:#a0a8d0;} .vol-chip.stag .vol-chip-fill{background:#a0a8d0;}
+.bloc-vol{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-left:4px;}
+.bvc{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 7px;border-radius:4px;font-size:0.68rem;font-weight:600;
+  background:var(--surface3);
+}
+.bvc.hg{color:var(--idrac);border-left:2px solid var(--idrac);}
+.bvc.hgpg{color:var(--success);border-left:2px solid var(--success);}
+.bvc.tice{color:var(--iet);border-left:2px solid var(--iet);}
+.bvc.stag{color:#a0a8d0;border-left:2px solid #a0a8d0;}
+.bloc-dates{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:0.71rem;color:var(--text2);
+  background:var(--surface3);border:1px solid var(--border);
+  border-radius:6px;padding:2px 8px;white-space:nowrap;flex-shrink:0;
+}
+.bloc-dates svg{opacity:0.6;flex-shrink:0;}
+.bloc-dates.has-dates{color:var(--text);border-color:rgba(124,58,237,0.3);background:rgba(124,58,237,0.06);}
+.bvc .bvc-done{opacity:0.55;font-size:0.62rem;}
+.bloc-body{display:none;border-top:1px solid var(--border);}
+.bloc-body.open{display:block;}
+
+/* MODULE ROWS */
+.module-row{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border);font-size:0.82rem;}
+.module-row:last-child{border-bottom:none;}
+.module-row:hover{background:rgba(255,255,255,0.015);}
+.status-cycle-btn{opacity:0.9;}
+.fmt-cell{display:flex;flex-direction:column;gap:3px;min-width:140px;max-width:200px;}
+.fmt-col-pressenti{min-width:130px;max-width:170px;flex-shrink:0;}
+.fmt-col-assigne{min-width:140px;max-width:180px;flex-shrink:0;}
+.fmt-select{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-family:"DM Sans",sans-serif;font-size:0.76rem;outline:none;cursor:pointer;}
+.fmt-select:focus{border-color:var(--success);}
+.fmt-col-pressenti .fmt-pressenti-input{width:100%;}
+.fmt-col-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);font-weight:600;margin-bottom:2px;}
+.fmt-assigné{font-size:0.78rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fmt-pressenti{font-size:0.72rem;color:#e07b00;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic;}
+.fmt-pressenti::before{content:"🎯 ";}
+.fmt-none{color:var(--text3);font-size:0.76rem;}
+
+/* Pressenti section in formateurs tab */
+.pressenti-section{margin-bottom:20px;}
+.pressenti-section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:#e07b00;}
+.pressenti-card{background:var(--surface);border:1px solid rgba(224,123,0,0.3);border-left:3px solid #e07b00;border-radius:var(--radius);padding:14px 18px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.pressenti-card:hover{background:var(--surface2);}
+.pressenti-name{font-weight:600;font-size:0.9rem;color:#e07b00;}
+.pressenti-modules{font-size:0.76rem;color:var(--text2);margin-top:3px;}
+.pressenti-schools{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+
+/* No-formateur recap */
+.no-fmt-section{margin-bottom:20px;}
+.no-fmt-section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--danger);}
+.no-fmt-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:0.82rem;}
+.no-fmt-row:last-child{border-bottom:none;}
+.no-fmt-row:hover{background:rgba(255,255,255,0.015);}
+.fmt-select{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:3px 6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.76rem;outline:none;cursor:pointer;transition:border-color 0.2s;}
+.fmt-select:focus{border-color:var(--accent);}
+.fmt-select option{background:var(--surface2);}
+.fmt-pressenti-input{width:100%;background:transparent;border:none;border-bottom:1px dashed var(--border);color:#e07b00;font-family:'DM Sans',sans-serif;font-size:0.72rem;font-style:italic;outline:none;padding:2px 4px;transition:border-color 0.2s;}
+.fmt-pressenti-input::placeholder{color:var(--text3);font-style:italic;}
+.fmt-pressenti-input:focus{border-bottom-color:#e07b00;background:rgba(224,123,0,0.06);border-radius:4px 4px 0 0;}
+.status-cycle-btn:hover{opacity:1;transform:scale(1.05);filter:brightness(1.15);}
+.module-type{font-size:0.68rem;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--surface3);color:var(--text2);}
+.module-type.cours{background:rgba(124,58,237,0.12);color:var(--idrac);}
+.module-type.eval{background:rgba(245,192,48,0.12);color:var(--warning);}
+
+/* HEURES CHIPS */
+.heure-chips{display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.hc{padding:2px 7px;border-radius:4px;font-size:0.7rem;font-weight:600;}
+/* Stateless display chips (fallback) */
+.hc-hg{background:rgba(124,58,237,0.12);color:var(--idrac);}
+.hc-hgpg{background:rgba(34,197,94,0.12);color:var(--success);}
+.hc-tice{background:rgba(45,134,83,0.12);color:var(--iet);}
+.hc-stag{background:rgba(200,200,255,0.1);color:#a0a8d0;}
+/* Clickable hour-status chips */
+.hcs{
+  display:inline-flex;flex-direction:column;align-items:center;
+  gap:2px;cursor:pointer;border:none;background:transparent;
+  padding:2px 4px;border-radius:6px;transition:transform 0.15s;
+}
+.hcs:hover{transform:scale(1.06);}
+.hcs-label{font-size:0.62rem;font-weight:700;letter-spacing:0.4px;opacity:0.75;}
+.hcs-status{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:700;
+  border:none;white-space:nowrap;
+  transition:filter 0.15s;
+}
+.hcs:hover .hcs-status{filter:brightness(1.15);}
+/* status colors per type */
+.hcs-ap  .hcs-status{background:rgba(255,92,74,0.15);color:#ff5c4a;}
+.hcs-ec  .hcs-status{background:rgba(245,192,48,0.18);color:#e0a800;}
+.hcs-pl  .hcs-status{background:rgba(37,99,235,0.15);color:#2563eb;}
+.hcs-re  .hcs-status{background:rgba(34,197,94,0.15);color:#22c55e;}
+/* type accent bar on top of chip */
+.hcs-hg   .hcs-label{color:var(--idrac);}
+.hcs-hgpg .hcs-label{color:var(--success);}
+.hcs-tice .hcs-label{color:var(--iet);}
+.hcs-stag .hcs-label{color:#a0a8d0;}
+
+/* SEARCH */
+.search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;margin-bottom:16px;}
+.search-bar input{background:none;border:none;outline:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.86rem;flex:1;}
+
+/* FORMATION CARD */
+.formation-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;}
+.formation-card:hover{border-color:var(--accent);background:var(--surface3);}
+
+.empty-state{text-align:center;padding:48px 20px;color:var(--text2);}
+.empty-state svg{width:40px;height:40px;margin:0 auto 12px;opacity:0.25;display:block;}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px;}
+.divider{height:1px;background:var(--border);margin:16px 0;}
+.mt-8{margin-top:8px;}.mt-12{margin-top:12px;}.mb-12{margin-bottom:12px;}
+.text-sm{font-size:0.8rem;}.text-xs{font-size:0.72rem;}.text-muted{color:var(--text2);}
+.fw-bold{font-weight:700;}
+.flex{display:flex;}.items-center{align-items:center;}.justify-between{justify-content:space-between;}.gap-8{gap:8px;}.gap-12{gap:12px;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     ÉCRAN DE CONNEXION
+════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div id="login-box">
+    <div id="login-pills">
+      <span style="font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:20px;background:rgba(124,58,237,0.15);color:#7C3AED">IDRAC</span>
+      <span style="font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:20px;background:rgba(37,99,235,0.15);color:#2563EB">ICL</span>
+      <span style="font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:20px;background:rgba(45,134,83,0.2);color:#2D8653">IET</span>
+    </div>
+    <h2>Pilotage Pédagogique</h2>
+    <p>Entrez le mot de passe pour accéder à l'application</p>
+    <input type="password" id="login-pwd" placeholder="Mot de passe..." onkeydown="if(event.key==='Enter')checkLogin()">
+    <button id="login-btn" onclick="checkLogin()">Se connecter</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     APPLICATION (masquée jusqu'à la connexion)
+════════════════════════════════════════════ -->
+<div id="app-wrapper">
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-schools">
+      <span class="school-pill idrac">IDRAC</span>
+      <span class="school-pill icl">ICL</span>
+      <span class="school-pill iet">IET</span>
+    </div>
+    <div class="logo-sub">Pilotage Pédagogique · Lille</div>
+  </div>
+
+  <div class="school-filter">
+    <div class="school-filter-label">Filtrer par école</div>
+    <div class="school-btns">
+      <button class="school-btn active-all" onclick="setSchoolFilter('all',this)">Toutes</button>
+      <button class="school-btn" onclick="setSchoolFilter('IDRAC',this)">IDRAC</button>
+      <button class="school-btn" onclick="setSchoolFilter('ICL',this)">ICL</button>
+      <button class="school-btn" onclick="setSchoolFilter('IET',this)">IET</button>
+    </div>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-section">Tableau de bord</div>
+    <div class="nav-item active" onclick="navigate('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Vue d'ensemble
+    </div>
+    <div class="nav-section">Planification</div>
+    <div class="nav-item" onclick="navigate('formations')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Formations <span class="nav-badge" id="badge-formations">0</span>
+    </div>
+    <div class="nav-item" onclick="navigate('maquettes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      Maquettes & Blocs
+    </div>
+    <div class="nav-section">Formateurs</div>
+    <div class="nav-item" onclick="navigate('recrutements')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+      Recrutements <span class="nav-badge danger" id="badge-recrutements">0</span>
+    </div>
+    <div class="nav-item" onclick="navigate('bilans')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+      Bilans annuels <span class="nav-badge warn" id="badge-bilans">0</span>
+    </div>
+    <div class="nav-item" onclick="navigate('formateurs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Tous les formateurs
+    </div>
+  </div>
+  <div class="sidebar-footer">Année 2024–2025</div>
+</nav>
+
+<!-- MAIN -->
+<main id="main">
+  <div class="topbar">
+    <div class="page-title" id="topbar-title">Vue d'ensemble</div>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+
+  <!-- ===== DASHBOARD ===== -->
+  <div class="page active" id="page-dashboard">
+    <!-- School progress top -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Avancement de la planification par école
+      </div>
+      <div id="school-progress-rows"></div>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:18px">
+      <div class="stat-card blue"><div class="stat-label">Formations actives</div><div class="stat-value" id="stat-formations">0</div><div class="stat-sub">toutes écoles</div></div>
+      <div class="stat-card green"><div class="stat-label">Modules planifiés</div><div class="stat-value" id="stat-modules-ok">0</div><div class="stat-sub" id="stat-modules-sub">/ 0 total</div></div>
+      <div class="stat-card orange"><div class="stat-label">Recrutements actifs</div><div class="stat-value" id="stat-rec">0</div><div class="stat-sub">en cours</div></div>
+      <div class="stat-card yellow"><div class="stat-label">Bilans en cours</div><div class="stat-value" id="stat-bil">0</div><div class="stat-sub">formateurs</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/></svg>
+          Avancement par formation
+        </div>
+        <div id="dash-formations"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Actions à réaliser
+        </div>
+        <div id="dash-alerts"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Activité récente
+      </div>
+      <div id="dash-activity"></div>
+    </div>
+  </div>
+
+  <!-- ===== FORMATIONS ===== -->
+  <div class="page" id="page-formations">
+    <div class="search-bar">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="search-formations" placeholder="Rechercher une formation..." oninput="renderFormations()">
+    </div>
+    <div id="formations-list"></div>
+  </div>
+
+  <!-- ===== MAQUETTES ===== -->
+  <div class="page" id="page-maquettes">
+    <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:18px;flex-wrap:wrap">
+      <div>
+        <label class="form-label">Formation</label>
+        <select class="form-control" id="filter-maquette-formation" style="width:280px" onchange="renderMaquette()">
+          <option value="">— Choisir une formation —</option>
+        </select>
+      </div>
+    </div>
+    <div id="maquette-content"></div>
+  </div>
+
+  <!-- ===== RECRUTEMENTS ===== -->
+  <div class="page" id="page-recrutements">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('recrutements','all',this)">Tous</div>
+      <div class="tab" onclick="switchTab('recrutements','en_cours',this)">En cours</div>
+      <div class="tab" onclick="switchTab('recrutements','finalises',this)">Finalisés</div>
+    </div>
+    <div id="recrutements-list"></div>
+  </div>
+
+  <!-- ===== BILANS ===== -->
+  <div class="page" id="page-bilans">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('bilans','all',this)">Tous</div>
+      <div class="tab" onclick="switchTab('bilans','en_cours',this)">En cours</div>
+      <div class="tab" onclick="switchTab('bilans','finalises',this)">Finalisés</div>
+    </div>
+    <div id="bilans-list"></div>
+  </div>
+
+  <!-- ===== FORMATEURS ===== -->
+  <div class="page" id="page-formateurs">
+    <div class="tabs" id="fmt-tabs">
+      <div class="tab active" onclick="switchFmtTab('a_recruter',this)">🔴 À recruter <span class="nav-badge danger" id="fmt-badge-recruter" style="margin-left:4px;font-size:0.62rem">0</span></div>
+      <div class="tab" onclick="switchFmtTab('pressentis',this)">🎯 Pressentis <span class="nav-badge warn" id="fmt-badge-pressentis" style="margin-left:4px;font-size:0.62rem;color:#000">0</span></div>
+      <div class="tab" onclick="switchFmtTab('liste',this)">👥 Liste formateurs <span class="nav-badge" id="fmt-badge-liste" style="margin-left:4px;font-size:0.62rem">0</span></div>
+    </div>
+
+    <!-- Sous-onglet 1: À recruter (modules sans formateur ni pressenti) -->
+    <div id="fmt-tab-a_recruter">
+      <div class="no-fmt-section" id="no-fmt-section"></div>
+    </div>
+
+    <!-- Sous-onglet 2: Pressentis à convertir -->
+    <div id="fmt-tab-pressentis" style="display:none">
+      <div class="pressenti-section" id="pressenti-section"></div>
+    </div>
+
+    <!-- Sous-onglet 3: Liste formateurs -->
+    <div id="fmt-tab-liste" style="display:none">
+      <div class="search-bar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-formateurs" placeholder="Rechercher un formateur..." oninput="renderFormateurs()">
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table><thead><tr><th>Nom</th><th>Email</th><th>Spécialité</th><th>École(s)</th><th>Modules assignés</th><th>Type</th><th>Actions</th></tr></thead>
+          <tbody id="formateurs-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- =================== MODALS =================== -->
+
+<!-- Modal Formation -->
+<div class="modal-overlay" id="modal-formation">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="mf-title">Nouvelle formation</div>
+      <button class="btn-icon" onclick="closeModal('modal-formation')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mf-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">École *</label>
+          <select class="form-control" id="mf-ecole">
+            <option value="IDRAC">IDRAC</option>
+            <option value="ICL">ICL</option>
+            <option value="IET">IET</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Intitulé *</label>
+          <input type="text" class="form-control" id="mf-nom" placeholder="ex: BTS NDRC 1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Niveau</label>
+          <select class="form-control" id="mf-niveau">
+            <option>BTS</option><option>Bac+3</option><option>Bac+4</option><option>Bac+5 MBA</option><option>Bac+5 MSC</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Année</label>
+          <input type="text" class="form-control" id="mf-annee" placeholder="2024-2025">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nbre de groupes</label>
+          <input type="number" class="form-control" id="mf-groupes" value="1" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type de maquette</label>
+          <select class="form-control" id="mf-type">
+            <option value="blocs">Blocs de compétences (B3/MBA)</option>
+            <option value="modules">Modules directs (BTS)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-formation')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFormation()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Bloc -->
+<div class="modal-overlay" id="modal-bloc">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="mb-title">Nouveau bloc de compétences</div>
+      <button class="btn-icon" onclick="closeModal('modal-bloc')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mb-id">
+      <input type="hidden" id="mb-formation-id">
+      <div class="form-group">
+        <label class="form-label">Formation</label>
+        <input type="text" class="form-control" id="mb-formation-name" readonly style="opacity:0.6">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Type de conteneur</label>
+          <select class="form-control" id="mb-type-conteneur">
+            <option value="bloc">Bloc de compétences</option>
+            <option value="hors-bloc">Hors Bloc</option>
+            <option value="parcours">Parcours</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Numéro / Code</label>
+          <input type="text" class="form-control" id="mb-num" placeholder="ex: Bloc 1 / HB / P1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Intitulé *</label>
+          <input type="text" class="form-control" id="mb-nom" placeholder="ex: Management Commercial">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date de début</label>
+          <input type="date" class="form-control" id="mb-date-debut">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date de fin</label>
+          <input type="date" class="form-control" id="mb-date-fin">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" id="mb-desc"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-bloc')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBloc()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Module -->
+<div class="modal-overlay" id="modal-module">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="mm-title">Nouveau module</div>
+      <button class="btn-icon" onclick="closeModal('modal-module')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mm-id">
+      <input type="hidden" id="mm-bloc-id">
+      <input type="hidden" id="mm-formation-id">
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Intitulé du module *</label>
+          <input type="text" class="form-control" id="mm-nom">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-control" id="mm-type">
+            <option value="cours">Cours</option>
+            <option value="eval">Évaluation</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Groupes</label>
+          <input type="number" class="form-control" id="mm-groupes" value="1" min="1">
+        </div>
+      </div>
+      <div class="form-row-3" style="margin-bottom:4px">
+        <div class="form-group">
+          <label class="form-label">HG — Présentiel (h)</label>
+          <input type="number" class="form-control" id="mm-hg" value="0" min="0" step="0.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">HGPG — Coaching (h)</label>
+          <input type="number" class="form-control" id="mm-hgpg" value="0" min="0" step="0.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">TICE — E-learning (h)</label>
+          <input type="number" class="form-control" id="mm-tice" value="0" min="0" step="0.5">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">STAG — Autonomie (h)</label>
+          <input type="number" class="form-control" id="mm-stag" value="0" min="0" step="0.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🎯 Formateur pressenti <span style="font-size:0.72rem;color:var(--text3);font-weight:400">(hypothèse)</span></label>
+          <input type="text" class="form-control" id="mm-pressenti" placeholder="Nom libre…">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">✅ Formateur assigné <span style="font-size:0.72rem;color:var(--text3);font-weight:400">(validé)</span></label>
+        <select class="form-control" id="mm-formateur"><option value="">— Non assigné —</option></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Période</label>
+          <input type="text" class="form-control" id="mm-periode" placeholder="ex: Oct-Nov 2024">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Statut</label>
+          <select class="form-control" id="mm-statut">
+            <option value="a_planifier">À planifier</option>
+            <option value="en_cours">En cours</option>
+            <option value="planifie">Planifié</option>
+            <option value="realise">Réalisé</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" id="mm-notes"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-module')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveModule()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Formateur -->
+<div class="modal-overlay" id="modal-formateur">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="mfmt-title">Nouveau formateur</div>
+      <button class="btn-icon" onclick="closeModal('modal-formateur')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mfmt-id">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Prénom *</label><input type="text" class="form-control" id="mfmt-prenom"></div>
+        <div class="form-group"><label class="form-label">Nom *</label><input type="text" class="form-control" id="mfmt-nom"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-control" id="mfmt-email"></div>
+        <div class="form-group"><label class="form-label">Téléphone</label><input type="text" class="form-control" id="mfmt-tel"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Spécialité</label><input type="text" class="form-control" id="mfmt-specialite"></div>
+        <div class="form-group"><label class="form-label">Type</label>
+          <select class="form-control" id="mfmt-type"><option value="existant">En poste</option><option value="nouveau">Nouveau recrutement</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Écoles concernées</label>
+        <div style="display:flex;gap:8px">
+          <label class="checkbox-label" style="flex:1"><input type="checkbox" id="mfmt-idrac" value="IDRAC"> IDRAC</label>
+          <label class="checkbox-label" style="flex:1"><input type="checkbox" id="mfmt-icl" value="ICL"> ICL</label>
+          <label class="checkbox-label" style="flex:1"><input type="checkbox" id="mfmt-iet" value="IET"> IET</label>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-control" id="mfmt-notes"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-formateur')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFormateur()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Process -->
+<div class="modal-overlay" id="modal-process">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="mp-title">Suivi processus</div>
+      <button class="btn-icon" onclick="closeModal('modal-process')">✕</button>
+    </div>
+    <div class="modal-body" id="mp-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-process')">Fermer</button>
+      <button class="btn btn-primary" id="mp-next-btn" onclick="advanceStep()">Étape suivante →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal New Process -->
+<div class="modal-overlay" id="modal-new-process">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="mnp-title">Nouveau suivi</div>
+      <button class="btn-icon" onclick="closeModal('modal-new-process')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mnp-type">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Formateur *</label><select class="form-control" id="mnp-formateur"></select></div>
+        <div class="form-group"><label class="form-label">Date entretien</label><input type="date" class="form-control" id="mnp-date"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Module(s) concerné(s)</label><input type="text" class="form-control" id="mnp-modules"></div>
+      <div class="form-group"><label class="form-label">École</label>
+        <select class="form-control" id="mnp-ecole"><option value="IDRAC">IDRAC</option><option value="ICL">ICL</option><option value="IET">IET</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-control" id="mnp-notes"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-new-process')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveNewProcess()">Créer le suivi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+// DB / LOAD / SAVE — géré par le moteur Firebase en bas de page
+// uid() et addActivity() restent ici car utilisés partout
+// ============================================================
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function addActivity(msg){ const d=load(); d.activity.unshift({id:uid(),msg,ts:new Date().toLocaleString('fr-FR')}); if(d.activity.length>40)d.activity=d.activity.slice(0,40); save(d); }
+
+const SCHOOL_COLOR = { IDRAC:'idrac', ICL:'icl', IET:'iet' };
+
+// ============================================================
+// PROCESS STEPS
+// ============================================================
+// GED steps: keys that need a GED checkbox
+const GED_STEPS = ['entretien','validation_module','mail_validation'];
+
+const STEPS_REC = [
+  {key:'entretien',        label:'Entretien de recrutement',              icon:'👥', ged:true,  desc:'Entretien avec le candidat'},
+  {key:'mail_entretien',   label:'Mail suite à l\'entretien',             icon:'📧', ged:false, desc:'Envoi du CR et retour d\'entretien'},
+  {key:'validation_module',label:'Validation prise en charge du module',  icon:'✅', ged:true,  desc:'Confirmation de la prise en charge'},
+  {key:'mail_dispo',       label:'Mail demande de disponibilités',        icon:'📅', ged:false, desc:'Mail pour récupérer les disponibilités'},
+  {key:'recup_donnees',    label:'Récupération données de planification', icon:'📋', ged:false, desc:'Collecte des créneaux'},
+  {key:'mail_validation',  label:'Mail validation de la planification',   icon:'📨', ged:true,  desc:'Envoi du planning validé'},
+  {key:'mail_contrat',     label:'Mail contractualisation',               icon:'📝', ged:false, desc:'Envoi du dossier de contractualisation'},
+  {key:'contrat_signe',    label:'Contrat signé',                         icon:'🖊️', ged:false, desc:'Réception du contrat signé'},
+  {key:'engagement',       label:'Signature engagement intervenant',      icon:'📜', ged:false, desc:'Signature de la charte'},
+  {key:'badge',            label:'Remise du badge',                       icon:'🪪', ged:false, desc:'Badge d\'accès remis'},
+];
+const STEPS_BIL = [
+  {key:'entretien',        label:'Entretien de bilan annuel',             icon:'💬', ged:true,  desc:'Entretien annuel avec le formateur'},
+  {key:'mail_entretien',   label:'Mail suite au bilan',                   icon:'📧', ged:false, desc:'Envoi du CR du bilan'},
+  {key:'validation_module',label:'Validation reconduction module',        icon:'✅', ged:true,  desc:'Confirmation de la reconduction'},
+  {key:'mail_dispo',       label:'Mail demande de disponibilités',        icon:'📅', ged:false, desc:'Mail pour récupérer les disponibilités'},
+  {key:'recup_donnees',    label:'Récupération données de planification', icon:'📋', ged:false, desc:'Collecte des créneaux'},
+  {key:'mail_validation',  label:'Mail validation de la planification',   icon:'📨', ged:true,  desc:'Envoi du planning validé'},
+  {key:'mail_contrat',     label:'Mail contractualisation',               icon:'📝', ged:false, desc:'Envoi du dossier'},
+  {key:'contrat_signe',    label:'Contrat signé',                         icon:'🖊️', ged:false, desc:'Réception du contrat signé'},
+  {key:'engagement',       label:'Renouvellement engagement intervenant', icon:'📜', ged:false, desc:'Renouvellement de la charte'},
+  {key:'badge',            label:'Vérification/remise du badge',         icon:'🪪', ged:false, desc:'Badge vérifié ou renouvelé'},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let schoolFilter = 'all';
+let currentPage = 'dashboard';
+let tabFilter = {recrutements:'all', bilans:'all'};
+let currentProcessId = null;
+let openBlocs = {};
+
+function setSchoolFilter(s, el){
+  schoolFilter = s;
+  document.querySelectorAll('.school-btn').forEach(b=>{ b.className='school-btn'; });
+  el.classList.add('active-'+s);
+  renderPage(currentPage);
+}
+
+// ============================================================
+// NAV
+// ============================================================
+function navigate(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')===`navigate('${page}')`) n.classList.add('active'); });
+  currentPage = page;
+  renderPage(page);
+}
+
+function renderPage(page){
+  const titles = {dashboard:'Vue d\'ensemble',formations:'Formations',maquettes:'Maquettes & Blocs de compétences',recrutements:'Recrutements',bilans:'Bilans annuels',formateurs:'Formateurs'};
+  document.getElementById('topbar-title').textContent = titles[page]||'';
+  const act = document.getElementById('topbar-actions');
+  act.innerHTML = '';
+  if(page==='formations') act.innerHTML=`<button class="btn btn-primary" onclick="openModalFormation()">+ Nouvelle formation</button>`;
+  if(page==='maquettes') act.innerHTML=`<button class="btn btn-secondary" id="btn-add-bloc" style="display:none" onclick="openModalBloc('')">+ Conteneur</button><button class="btn btn-primary" id="btn-add-module" style="display:none" onclick="openModalModule('')">+ Module</button>`;
+  if(page==='formateurs') act.innerHTML=`<button class="btn btn-primary" onclick="openModalFormateur()">+ Formateur</button>`;
+  if(page==='recrutements') act.innerHTML=`<button class="btn btn-primary" onclick="openNewProcess('recrutement')">+ Recrutement</button>`;
+  if(page==='bilans') act.innerHTML=`<button class="btn btn-primary" onclick="openNewProcess('bilan')">+ Bilan</button>`;
+  if(page==='dashboard') renderDashboard();
+  else if(page==='formations') renderFormations();
+  else if(page==='maquettes'){ populateMaquetteFilter(); renderMaquette(); }
+  else if(page==='formateurs') renderFormateurs();
+  else if(page==='recrutements') renderRecrutements();
+  else if(page==='bilans') renderBilans();
+  updateBadges();
+}
+
+// ============================================================
+// ALERT LOGIC — relance urgente
+// ============================================================
+function daysSince(dateStr){
+  if(!dateStr) return 999;
+  const d = new Date(dateStr); if(isNaN(d)) return 999;
+  return Math.floor((Date.now()-d.getTime())/(1000*60*60*24));
+}
+
+// Steps that involve sending a mail (awaiting response)
+const MAIL_STEPS = ['mail_entretien','mail_dispo','mail_validation','mail_contrat'];
+
+function getProcessAlerts(d){
+  const alerts = [];
+  const allSteps = {recrutement:STEPS_REC, bilan:STEPS_BIL};
+  d.process.forEach(p=>{
+    const steps = allSteps[p.type];
+    if(!steps || p.stepIndex >= steps.length) return;
+    const curStep = steps[p.stepIndex];
+    // Get date of last validated step
+    const prevStepKey = p.stepIndex>0 ? steps[p.stepIndex-1].key : null;
+    const lastActionDate = prevStepKey && p.stepDates?.[prevStepKey+'_date'] ? p.stepDates[prevStepKey+'_date'] : p.createdAtISO;
+    const days = daysSince(lastActionDate);
+    const isMail = MAIL_STEPS.includes(curStep.key) || (p.stepIndex>0 && MAIL_STEPS.includes(steps[p.stepIndex-1].key));
+    const isUrgent = days > 7;
+    alerts.push({ p, curStep, days, isUrgent, isMail });
+  });
+  return alerts;
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard(){
+  const d = load();
+  const formations = schoolFilter==='all' ? d.formations : d.formations.filter(f=>f.ecole===schoolFilter);
+  const modules = d.modules;
+
+  // School progress
+  const schools = ['IDRAC','ICL','IET'];
+  const schoolRows = document.getElementById('school-progress-rows');
+  const schoolData = schools.map(s=>{
+    const fids = d.formations.filter(f=>f.ecole===s).map(f=>f.id);
+    const mods = d.modules.filter(m=>fids.includes(m.formationId));
+    const done = mods.filter(m=>m.statut==='planifie'||m.statut==='realise').length;
+    const pct = mods.length ? Math.round(done/mods.length*100) : 0;
+    return {s, mods:mods.length, done, pct};
+  });
+  schoolRows.innerHTML = schoolData.map(({s,mods,done,pct})=>`
+    <div class="school-progress-row">
+      <div class="school-progress-name"><span class="badge badge-${SCHOOL_COLOR[s]}">${s}</span></div>
+      <div class="school-progress-bar"><div class="school-progress-fill" style="width:${pct}%;background:var(--${SCHOOL_COLOR[s]})"></div></div>
+      <div class="school-progress-pct" style="color:var(--${SCHOOL_COLOR[s]})">${pct}%</div>
+      <div class="school-progress-detail text-muted">${done}/${mods} modules</div>
+    </div>`).join('');
+
+  // Stats
+  const allMods = modules.filter(m=> formations.map(f=>f.id).includes(m.formationId));
+  const done = allMods.filter(m=>m.statut==='planifie'||m.statut==='realise').length;
+  document.getElementById('stat-formations').textContent = formations.length;
+  document.getElementById('stat-modules-ok').textContent = done;
+  document.getElementById('stat-modules-sub').textContent = `/ ${allMods.length} modules total`;
+  const recN = d.process.filter(p=>p.type==='recrutement'&&p.stepIndex<STEPS_REC.length).length;
+  const bilN = d.process.filter(p=>p.type==='bilan'&&p.stepIndex<STEPS_BIL.length).length;
+  document.getElementById('stat-rec').textContent = recN;
+  document.getElementById('stat-bil').textContent = bilN;
+
+  // Formations progress
+  const fList = document.getElementById('dash-formations');
+  if(!formations.length){ fList.innerHTML='<div class="empty-state"><p>Aucune formation</p></div>'; }
+  else {
+    fList.innerHTML = formations.map(f=>{
+      const mods = d.modules.filter(m=>m.formationId===f.id);
+      const ok = mods.filter(m=>m.statut==='planifie'||m.statut==='realise').length;
+      const pct = mods.length ? Math.round(ok/mods.length*100) : 0;
+      const col = SCHOOL_COLOR[f.ecole]||'blue';
+      return `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div><span class="badge badge-${col}" style="margin-right:6px">${f.ecole}</span><span style="font-size:0.86rem;font-weight:500">${f.nom}</span></div>
+          <span style="font-size:0.78rem;color:var(--text2)">${ok}/${mods.length}</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill ${col}" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  // Alerts
+  const alertsEl = document.getElementById('dash-alerts');
+  const processAlerts = getProcessAlerts(d);
+  const modulesNoFormateur = d.modules.filter(m=>!m.formateurId && (m.statut==='a_planifier'||m.statut==='en_cours') && formations.map(f=>f.id).includes(m.formationId));
+
+  let alertsHtml = '';
+  processAlerts.forEach(({p,curStep,days,isUrgent})=>{
+    const cls = isUrgent ? 'urgent' : 'warning';
+    const icon = isUrgent ? '🔴' : '⚠️';
+    const label = isUrgent ? `RELANCE REQUISE (${days}j sans avancement)` : `En attente (${days}j)`;
+    alertsHtml += `<div class="alert-item ${cls}" onclick="openProcess('${p.id}')">
+      <span style="flex-shrink:0">${icon}</span>
+      <div><div style="font-weight:600">${p.formateur} <span style="font-size:0.72rem;opacity:0.7">${p.ecole||''}</span></div>
+      <div style="font-size:0.76rem;margin-top:1px">${curStep.icon} ${curStep.label} — ${label}</div></div>
+    </div>`;
+  });
+  modulesNoFormateur.slice(0,5).forEach(m=>{
+    const f = d.formations.find(x=>x.id===m.formationId);
+    alertsHtml += `<div class="alert-item info">
+      <span>📚</span><div>Module sans formateur : <strong>${m.nom}</strong>${f?' — '+f.nom:''}</div>
+    </div>`;
+  });
+  if(!alertsHtml) alertsHtml = `<div class="alert-item success"><span>✅</span><span>Aucune action urgente en attente</span></div>`;
+  alertsEl.innerHTML = alertsHtml;
+
+  // Activity
+  const actEl = document.getElementById('dash-activity');
+  if(!d.activity.length){ actEl.innerHTML='<div class="empty-state"><p>Aucune activité</p></div>'; return; }
+  actEl.innerHTML = d.activity.slice(0,12).map(a=>`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="width:5px;height:5px;border-radius:50%;background:var(--idrac);margin-top:5px;flex-shrink:0"></div>
+      <div style="flex:1"><div style="font-size:0.81rem">${a.msg}</div><div style="font-size:0.69rem;color:var(--text3);margin-top:1px">${a.ts}</div></div>
+    </div>`).join('');
+}
+
+function updateBadges(){
+  const d = load();
+  const filtered = schoolFilter==='all' ? d.formations : d.formations.filter(f=>f.ecole===schoolFilter);
+  document.getElementById('badge-formations').textContent = filtered.length;
+  const recN = d.process.filter(p=>p.type==='recrutement'&&p.stepIndex<STEPS_REC.length).length;
+  const bilN = d.process.filter(p=>p.type==='bilan'&&p.stepIndex<STEPS_BIL.length).length;
+  document.getElementById('badge-recrutements').textContent = recN;
+  document.getElementById('badge-bilans').textContent = bilN;
+}
+
+// ============================================================
+// FORMATIONS
+// ============================================================
+function renderFormations(){
+  const d = load();
+  const q = (document.getElementById('search-formations')?.value||'').toLowerCase();
+  let items = schoolFilter==='all' ? d.formations : d.formations.filter(f=>f.ecole===schoolFilter);
+  if(q) items = items.filter(f=>f.nom.toLowerCase().includes(q));
+  const list = document.getElementById('formations-list');
+  if(!items.length){ list.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg><p>Aucune formation</p></div>'; return; }
+
+  const bySchool = {IDRAC:[], ICL:[], IET:[]};
+  items.forEach(f=>bySchool[f.ecole]?.push(f));
+
+  list.innerHTML = ['IDRAC','ICL','IET'].map(s=>{
+    if(!bySchool[s].length) return '';
+    return `<div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span class="badge badge-${SCHOOL_COLOR[s]}" style="font-size:0.85rem;padding:4px 12px">${s}</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      ${bySchool[s].map(f=>{
+        const mods = d.modules.filter(m=>m.formationId===f.id);
+        const ok = mods.filter(m=>m.statut==='planifie'||m.statut==='realise').length;
+        const pct = mods.length ? Math.round(ok/mods.length*100) : 0;
+        const col = SCHOOL_COLOR[f.ecole];
+        const blocs = d.blocs.filter(b=>b.formationId===f.id);
+        return `<div class="formation-card" onclick="navigate('maquettes');document.getElementById('filter-maquette-formation').value='${f.id}';renderMaquette()">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div>
+              <span style="font-family:'Syne',sans-serif;font-weight:700">${f.nom}</span>
+              <span class="badge badge-gray" style="margin-left:8px">${f.niveau||''}</span>
+              <span class="badge badge-gray" style="margin-left:4px">${f.groupes||1} groupe(s)</span>
+              <span class="badge badge-gray" style="margin-left:4px">${f.typeMaquette==='blocs'?'Blocs':'Modules'}</span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <span class="badge badge-${col}">${pct}%</span>
+              <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openModalFormation('${f.id}')">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFormation('${f.id}')">🗑</button>
+            </div>
+          </div>
+          <div style="font-size:0.76rem;color:var(--text2);display:flex;gap:16px;margin-bottom:8px">
+            <span>${f.typeMaquette==='blocs'?blocs.length+' blocs':''}</span>
+            <span>📚 ${mods.length} modules</span><span>✅ ${ok} planifiés</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill ${col}" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function openModalFormation(id=''){
+  const d = load();
+  const f = id ? d.formations.find(x=>x.id===id) : null;
+  document.getElementById('mf-id').value = f?.id||'';
+  document.getElementById('mf-title').textContent = f?'Modifier la formation':'Nouvelle formation';
+  document.getElementById('mf-nom').value = f?.nom||'';
+  document.getElementById('mf-ecole').value = f?.ecole||'IDRAC';
+  document.getElementById('mf-niveau').value = f?.niveau||'BTS';
+  document.getElementById('mf-annee').value = f?.annee||'2024-2025';
+  document.getElementById('mf-groupes').value = f?.groupes||1;
+  document.getElementById('mf-type').value = f?.typeMaquette||'modules';
+  openModal('modal-formation');
+}
+
+function saveFormation(){
+  const nom = document.getElementById('mf-nom').value.trim();
+  if(!nom) return alert('Nom requis');
+  const d = load();
+  const id = document.getElementById('mf-id').value||uid();
+  const obj = { id, nom, ecole:document.getElementById('mf-ecole').value, niveau:document.getElementById('mf-niveau').value, annee:document.getElementById('mf-annee').value, groupes:document.getElementById('mf-groupes').value, typeMaquette:document.getElementById('mf-type').value };
+  const idx = d.formations.findIndex(x=>x.id===id);
+  if(idx>=0) d.formations[idx]=obj; else d.formations.push(obj);
+  save(d); addActivity(`Formation "${nom}" ${idx>=0?'modifiée':'créée'} (${obj.ecole})`);
+  closeModal('modal-formation'); renderFormations(); updateBadges();
+}
+
+function deleteFormation(id){
+  if(!confirm('Supprimer cette formation, ses blocs et modules ?')) return;
+  const d = load(); const f = d.formations.find(x=>x.id===id);
+  d.formations = d.formations.filter(x=>x.id!==id);
+  d.blocs = d.blocs.filter(x=>x.formationId!==id);
+  d.modules = d.modules.filter(x=>x.formationId!==id);
+  save(d); addActivity(`Formation "${f?.nom}" supprimée`); renderFormations(); updateBadges();
+}
+
+// ============================================================
+// MAQUETTES / BLOCS / MODULES
+// ============================================================
+function populateMaquetteFilter(){
+  const d = load();
+  const sel = document.getElementById('filter-maquette-formation');
+  const cur = sel.value;
+  const items = schoolFilter==='all' ? d.formations : d.formations.filter(f=>f.ecole===schoolFilter);
+  sel.innerHTML = '<option value="">— Choisir une formation —</option>' + items.map(f=>`<option value="${f.id}">${f.ecole} · ${f.nom}</option>`).join('');
+  if(cur) sel.value = cur;
+}
+
+function renderMaquette(){
+  const d = load();
+  const fid = document.getElementById('filter-maquette-formation')?.value||'';
+  const cont = document.getElementById('maquette-content');
+  const bBtn = document.getElementById('btn-add-bloc');
+  const mBtn = document.getElementById('btn-add-module');
+
+  if(!fid){ cont.innerHTML='<div class="empty-state"><p>Sélectionnez une formation pour afficher sa maquette</p></div>'; if(bBtn)bBtn.style.display='none'; if(mBtn)mBtn.style.display='none'; return; }
+
+  const f = d.formations.find(x=>x.id===fid);
+  if(!f){ cont.innerHTML='<div class="empty-state"><p>Formation introuvable</p></div>'; return; }
+
+  if(mBtn){ mBtn.style.display='inline-flex'; mBtn.onclick = ()=>openModalModule('',fid); }
+
+  const col = SCHOOL_COLOR[f.ecole];
+
+  if(f.typeMaquette==='blocs'){
+    if(bBtn){ bBtn.style.display='inline-flex'; bBtn.onclick=()=>openModalBloc('',fid); }
+    const blocs = d.blocs.filter(b=>b.formationId===fid);
+    if(!blocs.length){
+      cont.innerHTML=`<div class="empty-state"><p>Aucun bloc. <button class="btn btn-primary btn-sm" onclick="openModalBloc('','${fid}')">+ Ajouter un conteneur</button></p></div>`; return;
+    }
+    // Formation-level volume summary
+    const allBlocMods = d.modules.filter(m=>m.formationId===fid);
+    const formationVolBar = volSummaryBar(allBlocMods, 'Total formation');
+    cont.innerHTML = formationVolBar + blocs.map(b=>{
+      const mods = d.modules.filter(m=>m.blocId===b.id);
+      const ok = mods.filter(m=>m.statut==='planifie'||m.statut==='realise').length;
+      const pct = mods.length ? Math.round(ok/mods.length*100) : 0;
+      const isOpen = openBlocs[b.id];
+      const tc = b.typeConteneur||'bloc';
+      const ctLabel = {bloc:'Bloc',  'hors-bloc':'Hors Bloc', parcours:'Parcours'}[tc];
+      const tcColor = {bloc:'var(--idrac)', 'hors-bloc':'#e07b00', parcours:'#0e9de0'}[tc];
+      return `<div class="bloc-item type-${tc}" id="bloc-${b.id}">
+        <div class="bloc-header type-${tc}" onclick="toggleBloc('${b.id}')">
+          <span class="bloc-toggle" id="bt-${b.id}">▶</span>
+          <span class="ct-badge ct-${tc}">${ctLabel}</span>
+          ${b.num?`<span style="font-size:0.75rem;font-weight:700;color:${tcColor};flex-shrink:0">${b.num}</span>`:''}
+          <span class="bloc-name">${b.nom}</span>
+          ${(b.dateDebut||b.dateFin)?`<span class="bloc-dates has-dates type-${tc}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${b.dateDebut?new Date(b.dateDebut).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'?'} → ${b.dateFin?new Date(b.dateFin).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'?'}</span>`:`<span class="bloc-dates" onclick="event.stopPropagation();openModalBloc('${b.id}')">+ dates</span>`}
+          <div class="bloc-meta">
+            <span>${mods.length} modules</span>
+            <span>${ok}/${mods.length} planifiés</span>
+            <span style="color:${tcColor}">${pct}%</span>
+            <div class="bloc-vol">${blocVolInline(mods)}</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="event.stopPropagation();openModalBloc('${b.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteBloc('${b.id}')">🗑</button>
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openModalModule('','${fid}','${b.id}')">+ Module</button>
+        </div>
+        <div class="bloc-body" id="bb-${b.id}">
+          ${renderModulesRows(mods, d)}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    if(bBtn) bBtn.style.display='none';
+    const mods = d.modules.filter(m=>m.formationId===fid);
+    const btsVolBar = volSummaryBar(mods, 'Total formation');
+    cont.innerHTML = btsVolBar + `<div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:16px 18px;border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-weight:700;display:flex;align-items:center;justify-content:space-between">
+        <span>Modules — ${f.nom}</span>
+        <div class="bloc-vol" style="font-weight:400">${blocVolInline(mods)}</div>
+      </div>
+      ${renderModulesRows(mods, d)}
+      ${!mods.length?'<div class="empty-state"><p>Aucun module</p></div>':''}
+    </div>`;
+  }
+  setTimeout(applyBlocClasses, 0);
+}
+
+function renderModulesRows(mods, d){
+  if(!mods.length) return `<div style="padding:20px;text-align:center;color:var(--text2);font-size:0.83rem">Aucun module dans ce bloc</div>`;
+  const header = `<div class="module-row" style="background:var(--surface3);padding:6px 18px;border-bottom:1px solid var(--border)">
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);font-weight:600;flex-shrink:0;width:40px">Type</span>
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);font-weight:600;flex:1">Module</span>
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);font-weight:600;min-width:200px">Volumes</span>
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);font-weight:600;width:80px;text-align:center">Groupes</span>
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:#e07b00;font-weight:600;min-width:130px">🎯 Pressenti</span>
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--success);font-weight:600;min-width:140px">✅ Assigné</span>
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);font-weight:600;min-width:80px">Statut</span>
+    <span style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);font-weight:600;width:60px">Période</span>
+    <span style="width:56px;flex-shrink:0"></span>
+  </div>`;
+  return header + mods.map(m=>{
+    const fmt = d.formateurs.find(f=>f.id===m.formateurId);
+    const statusMap = {a_planifier:'badge-orange',en_cours:'badge-yellow',planifie:'badge-blue',realise:'badge-green'};
+    const statusLabel = {a_planifier:'À planifier',en_cours:'En cours',planifie:'Planifié',realise:'Réalisé'};
+    return `<div class="module-row">
+      <span class="module-type ${m.type==='eval'?'eval':'cours'}">${m.type==='eval'?'ÉVAL':'COURS'}</span>
+      <span style="flex:1;font-weight:500">${m.nom}</span>
+      <div class="heure-chips">
+        ${m.hg>0?hcsChip(m.id,'hg',m.hg,m.statHg||'a_planifier'):''}
+        ${m.hgpg>0?hcsChip(m.id,'hgpg',m.hgpg,m.statHgpg||'a_planifier'):''}
+        ${m.tice>0?hcsChip(m.id,'tice',m.tice,m.statTice||'a_planifier'):''}
+        ${m.stag>0?hcsChip(m.id,'stag',m.stag,m.statStag||'a_planifier'):''}
+      </div>
+      <span style="font-size:0.75rem;color:var(--text2);width:80px;text-align:center">${m.groupes||1} gr.</span>
+      <div class="fmt-col-pressenti">
+        <input type="text" class="fmt-pressenti-input" value="${m.pressenti||''}" placeholder="🎯 Pressenti..." onclick="event.stopPropagation()" onblur="savePressenti('${m.id}', this.value)" onkeydown="if(event.key==='Enter'){this.blur()}" title="Formateur pressenti (hypothèse)">
+      </div>
+      <div class="fmt-col-assigne">
+        <select class="fmt-select" onchange="assignFormateur('${m.id}', this.value)" onclick="event.stopPropagation()" title="Formateur assigné (validé)">
+          <option value="">— Non assigné —</option>
+          ${d.formateurs.map(f=>`<option value="${f.id}"${m.formateurId===f.id?' selected':''}>${f.prenom} ${f.nom}</option>`).join('')}
+        </select>
+      </div>
+      <span class="badge ${statusMap[m.statut]||'badge-gray'}" title="Statut global (calculé automatiquement)">${statusLabel[m.statut]||m.statut}</span>
+      ${m.periode?`<span style="font-size:0.72rem;color:var(--text3)">${m.periode}</span>`:'<span></span>'}
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="btn-icon" onclick="openModalModule('${m.id}')">✏️</button>
+        <button class="btn-icon" onclick="deleteModule('${m.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+
+function applyBlocClasses() {
+  Object.keys(openBlocs).forEach(id => {
+    const bt = document.getElementById('bt-'+id);
+    const bb = document.getElementById('bb-'+id);
+    if(bt) bt.classList.toggle('open', !!openBlocs[id]);
+    if(bb) bb.classList.toggle('open', !!openBlocs[id]);
+  });
+}
+function toggleBloc(id){ openBlocs[id]=!openBlocs[id]; renderMaquette(); }
+
+function openModalBloc(id='', fid=''){
+  const d = load();
+  const b = id ? d.blocs.find(x=>x.id===id) : null;
+  const formId = b?.formationId||fid;
+  const f = d.formations.find(x=>x.id===formId);
+  document.getElementById('mb-id').value = b?.id||'';
+  document.getElementById('mb-formation-id').value = formId;
+  document.getElementById('mb-formation-name').value = f?.nom||'';
+  document.getElementById('mb-title').textContent = b?'Modifier le bloc':'Nouveau bloc de compétences';
+  document.getElementById('mb-num').value = b?.num||'';
+  document.getElementById('mb-nom').value = b?.nom||'';
+  document.getElementById('mb-desc').value = b?.desc||'';
+  document.getElementById('mb-date-debut').value = b?.dateDebut||'';
+  document.getElementById('mb-date-fin').value = b?.dateFin||'';
+  document.getElementById('mb-type-conteneur').value = b?.typeConteneur||'bloc';
+  document.getElementById('mb-title').textContent = b ? 'Modifier le conteneur' : 'Nouveau conteneur';
+  openModal('modal-bloc');
+}
+
+function saveBloc(){
+  const nom = document.getElementById('mb-nom').value.trim(); if(!nom) return alert('Nom requis');
+  const d = load();
+  const id = document.getElementById('mb-id').value||uid();
+  const obj = {id, nom, num:document.getElementById('mb-num').value, typeConteneur:document.getElementById('mb-type-conteneur').value||'bloc', formationId:document.getElementById('mb-formation-id').value, desc:document.getElementById('mb-desc').value, dateDebut:document.getElementById('mb-date-debut').value, dateFin:document.getElementById('mb-date-fin').value};
+  const idx = d.blocs.findIndex(x=>x.id===id);
+  if(idx>=0) d.blocs[idx]=obj; else d.blocs.push(obj);
+  save(d); addActivity(`Bloc "${nom}" ${idx>=0?'modifié':'créé'}`);
+  closeModal('modal-bloc'); renderMaquette();
+}
+
+function deleteBloc(id){
+  if(!confirm('Supprimer ce bloc et ses modules ?')) return;
+  const d = load(); const b = d.blocs.find(x=>x.id===id);
+  d.blocs = d.blocs.filter(x=>x.id!==id);
+  d.modules = d.modules.filter(x=>x.blocId!==id);
+  save(d); addActivity(`Bloc "${b?.nom}" supprimé`); renderMaquette();
+}
+
+function openModalModule(id='', fid='', bid=''){
+  const d = load();
+  const m = id ? d.modules.find(x=>x.id===id) : null;
+  const formId = m?.formationId||fid;
+  const blocId = m?.blocId||bid;
+  document.getElementById('mm-id').value = m?.id||'';
+  document.getElementById('mm-formation-id').value = formId;
+  document.getElementById('mm-bloc-id').value = blocId;
+  document.getElementById('mm-title').textContent = m?'Modifier le module':'Nouveau module';
+  document.getElementById('mm-nom').value = m?.nom||'';
+  document.getElementById('mm-type').value = m?.type||'cours';
+  document.getElementById('mm-groupes').value = m?.groupes||1;
+  document.getElementById('mm-hg').value = m?.hg||0;
+  document.getElementById('mm-hgpg').value = m?.hgpg||0;
+  document.getElementById('mm-tice').value = m?.tice||0;
+  document.getElementById('mm-stag').value = m?.stag||0;
+  document.getElementById('mm-periode').value = m?.periode||'';
+  document.getElementById('mm-statut').value = m?.statut||'a_planifier';
+  document.getElementById('mm-notes').value = m?.notes||'';
+  const fmtSel = document.getElementById('mm-formateur');
+  fmtSel.innerHTML = '<option value="">— Non assigné —</option>' + d.formateurs.map(f=>`<option value="${f.id}">${f.prenom} ${f.nom}</option>`).join('');
+  if(m?.formateurId) fmtSel.value = m.formateurId;
+  document.getElementById('mm-pressenti').value = m?.pressenti||'';
+  openModal('modal-module');
+}
+
+function saveModule(){
+  const nom = document.getElementById('mm-nom').value.trim(); if(!nom) return alert('Nom requis');
+  const d = load();
+  const id = document.getElementById('mm-id').value||uid();
+  const obj = {id,nom,formationId:document.getElementById('mm-formation-id').value,blocId:document.getElementById('mm-bloc-id').value,type:document.getElementById('mm-type').value,groupes:document.getElementById('mm-groupes').value,hg:parseFloat(document.getElementById('mm-hg').value)||0,hgpg:parseFloat(document.getElementById('mm-hgpg').value)||0,tice:parseFloat(document.getElementById('mm-tice').value)||0,stag:parseFloat(document.getElementById('mm-stag').value)||0,formateurId:document.getElementById('mm-formateur').value,pressenti:document.getElementById('mm-pressenti').value.trim(),periode:document.getElementById('mm-periode').value,statut:document.getElementById('mm-statut').value,notes:document.getElementById('mm-notes').value};
+  const idx = d.modules.findIndex(x=>x.id===id);
+  if(idx>=0) d.modules[idx]=obj; else d.modules.push(obj);
+  save(d); addActivity(`Module "${nom}" ${idx>=0?'modifié':'créé'}`);
+  closeModal('modal-module'); renderMaquette();
+}
+
+/* ── helper: volume summary chips for a set of modules ── */
+function calcVol(mods) {
+  const done = s => s==='planifie'||s==='realise';
+  return {
+    hg:   { total: mods.reduce((a,m)=>a+(+m.hg||0),0),   planned: mods.reduce((a,m)=>a+(done(m.statHg||m.statut)?(+m.hg||0):0),0) },
+    hgpg: { total: mods.reduce((a,m)=>a+(+m.hgpg||0),0), planned: mods.reduce((a,m)=>a+(done(m.statHgpg||m.statut)?(+m.hgpg||0):0),0) },
+    tice: { total: mods.reduce((a,m)=>a+(+m.tice||0),0), planned: mods.reduce((a,m)=>a+(done(m.statTice||m.statut)?(+m.tice||0):0),0) },
+    stag: { total: mods.reduce((a,m)=>a+(+m.stag||0),0), planned: mods.reduce((a,m)=>a+(done(m.statStag||m.statut)?(+m.stag||0):0),0) },
+  };
+}
+
+function volSummaryBar(mods, label) {
+  const v = calcVol(mods);
+  const types = ['hg','hgpg','tice','stag'];
+  const labels = {hg:'HG',hgpg:'COACH',tice:'TICE',stag:'STAG'};
+  const chips = types.map(t => {
+    if(!v[t].total) return '';
+    const pct = Math.round(v[t].planned / v[t].total * 100);
+    return `<div class="vol-chip ${t}">
+      <span class="vol-chip-type">${labels[t]}</span>
+      <div class="vol-chip-bar"><div class="vol-chip-fill" style="width:${pct}%"></div></div>
+      <span class="vol-chip-nums">${v[t].planned}h / ${v[t].total}h</span>
+      <span class="vol-chip-sub">${pct}% planifié</span>
+    </div>`;
+  }).join('');
+  if(!chips) return '';
+  return `<div class="vol-summary"><span class="vol-summary-label">${label||'Volumes'}</span>${chips}</div>`;
+}
+
+function blocVolInline(mods) {
+  const v = calcVol(mods);
+  const types = ['hg','hgpg','tice','stag'];
+  const labels = {hg:'HG',hgpg:'COACH',tice:'TICE',stag:'STAG'};
+  return types.map(t => {
+    if(!v[t].total) return '';
+    const pct = Math.round(v[t].planned/v[t].total*100);
+    return `<span class="bvc ${t}" title="${labels[t]} : ${v[t].planned}h planifiées / ${v[t].total}h total">${labels[t]} ${v[t].total}h<span class="bvc-done"> (${pct}%)</span></span>`;
+  }).join('');
+}
+
+/* ── helper: renders one clickable hour-status chip ── */
+function hcsChip(mid, type, heures, statut){
+  const typeLabels = {hg:'HG',hgpg:'COACH',tice:'TICE',stag:'STAG'};
+  const stMap = {a_planifier:'ap',en_cours:'ec',planifie:'pl',realise:'re'};
+  const stLabel = {a_planifier:'À planif.',en_cours:'En cours',planifie:'Planifié',realise:'Réalisé'};
+  const sc = stMap[statut]||'ap';
+  const icon = {ap:'○',ec:'◑',pl:'●',re:'✓'}[sc];
+  return `<button class="hcs hcs-${type} hcs-${sc}" onclick="cycleHourStatus('${mid}','${type}')" title="Changer le statut ${typeLabels[type]}">
+    <span class="hcs-label">${typeLabels[type]} ${heures}h</span>
+    <span class="hcs-status">${icon} ${stLabel[statut]}</span>
+  </button>`;
+}
+
+function assignFormateur(moduleId, formateurId){
+  const d = load();
+  const m = d.modules.find(x=>x.id===moduleId);
+  if(!m) return;
+  m.formateurId = formateurId;
+  const fmt = d.formateurs.find(f=>f.id===formateurId);
+  save(d);
+  addActivity(`Module "${m.nom}" — Formateur assigné : ${fmt ? fmt.prenom+' '+fmt.nom : 'Non assigné'}`);
+  renderMaquette();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+function savePressenti(moduleId, value){
+  const d = load();
+  const m = d.modules.find(x=>x.id===moduleId);
+  if(!m) return;
+  const trimmed = value.trim();
+  if(m.pressenti === trimmed) return;
+  m.pressenti = trimmed;
+  save(d);
+  if(trimmed) addActivity(`Module "${m.nom}" — Pressenti : ${trimmed}`);
+  renderMaquette();
+  if(currentPage==='dashboard') renderDashboard();
+  if(currentPage==='formateurs') renderFormateurs();
+}
+
+function cycleHourStatus(id, type){
+  const d = load();
+  const m = d.modules.find(x=>x.id===id);
+  if(!m) return;
+  const cycle = ['a_planifier','en_cours','planifie','realise'];
+  const fieldMap = {hg:'statHg',hgpg:'statHgpg',tice:'statTice',stag:'statStag'};
+  const field = fieldMap[type];
+  const cur = m[field]||'a_planifier';
+  m[field] = cycle[(cycle.indexOf(cur)+1) % cycle.length];
+  // Recalc global module status = worst status of active types
+  const active = [];
+  if(m.hg>0)   active.push(m.statHg||'a_planifier');
+  if(m.hgpg>0) active.push(m.statHgpg||'a_planifier');
+  if(m.tice>0) active.push(m.statTice||'a_planifier');
+  if(m.stag>0) active.push(m.statStag||'a_planifier');
+  const priority = ['a_planifier','en_cours','planifie','realise'];
+  m.statut = active.length ? priority[Math.min(...active.map(s=>priority.indexOf(s)))] : m.statut;
+  save(d);
+  const typeL = {hg:'HG',hgpg:'COACH',tice:'TICE',stag:'STAG'};
+  const stL = {a_planifier:'À planifier',en_cours:'En cours',planifie:'Planifié',realise:'Réalisé'};
+  addActivity(`Module "${m.nom}" — ${typeL[type]} : ${stL[m[field]]}`);
+  renderMaquette();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+function cycleModuleStatus(id){
+  const d = load();
+  const m = d.modules.find(x=>x.id===id);
+  if(!m) return;
+  const cycle = ['a_planifier','en_cours','planifie','realise'];
+  const next = cycle[(cycle.indexOf(m.statut)+1) % cycle.length];
+  const labels = {a_planifier:'À planifier',en_cours:'En cours',planifie:'Planifié',realise:'Réalisé'};
+  m.statut = next;
+  save(d);
+  addActivity(`Module "${m.nom}" → ${labels[next]}`);
+  renderMaquette();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+function deleteModule(id){
+  if(!confirm('Supprimer ce module ?')) return;
+  const d = load(); const m = d.modules.find(x=>x.id===id);
+  d.modules = d.modules.filter(x=>x.id!==id);
+  save(d); addActivity(`Module "${m?.nom}" supprimé`); renderMaquette();
+}
+
+// ============================================================
+// FORMATEURS
+// ============================================================
+let currentFmtTab = 'a_recruter';
+function switchFmtTab(tab, el){
+  currentFmtTab = tab;
+  document.querySelectorAll('#fmt-tabs .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  ['a_recruter','pressentis','liste'].forEach(t=>{
+    const el = document.getElementById('fmt-tab-'+t);
+    if(el) el.style.display = t===tab ? 'block' : 'none';
+  });
+}
+
+function renderFormateurs(){
+  const d = load();
+  const q = (document.getElementById('search-formateurs')?.value||'').toLowerCase();
+  const tbody = document.getElementById('formateurs-tbody');
+
+  // ── Section 1: modules sans formateur ──
+  const noFmtEl = document.getElementById('no-fmt-section');
+  if(noFmtEl){
+    const fids = schoolFilter==='all' ? d.formations.map(f=>f.id) : d.formations.filter(f=>f.ecole===schoolFilter).map(f=>f.id);
+    const noFmtMods = d.modules.filter(m => fids.includes(m.formationId) && !m.formateurId && !m.pressenti);
+    const pressMods = d.modules.filter(m => fids.includes(m.formationId) && !m.formateurId && m.pressenti);
+    if(noFmtMods.length){
+      noFmtEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;border-color:rgba(255,92,74,0.3)">
+        <div class="no-fmt-section-title" style="padding:14px 18px;border-bottom:1px solid var(--border);margin-bottom:0">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Modules sans formateur ni pressenti (${noFmtMods.length})
+        </div>
+        ${noFmtMods.map(m=>{
+          const f = d.formations.find(x=>x.id===m.formationId);
+          const b = d.blocs.find(x=>x.id===m.blocId);
+          const col = SCHOOL_COLOR[f?.ecole]||'blue';
+          return `<div class="no-fmt-row">
+            <span class="badge badge-${col}">${f?.ecole||'?'}</span>
+            <span style="flex:1;font-weight:500">${m.nom}</span>
+            <span style="font-size:0.76rem;color:var(--text2)">${f?.nom||'?'}${b?' · '+b.nom:''}</span>
+            <span class="badge badge-orange">${m.hg||0}h HG · ${m.hgpg||0}h COACH · ${m.tice||0}h TICE · ${m.stag||0}h STAG</span>
+            <button class="btn btn-secondary btn-sm" onclick="openModalModule('${m.id}')">+ Assigner</button>
+          </div>`;
+        }).join('')}
+      </div>`;
+    } else {
+      noFmtEl.innerHTML = '';
+    }
+  }
+
+  // ── Section 2: pressentis à convertir ──
+  const presEl = document.getElementById('pressenti-section');
+  if(presEl){
+    const fids = schoolFilter==='all' ? d.formations.map(f=>f.id) : d.formations.filter(f=>f.ecole===schoolFilter).map(f=>f.id);
+    // Group modules by pressenti name (case-insensitive)
+    const presMap = {};
+    d.modules.filter(m => fids.includes(m.formationId) && m.pressenti && !m.formateurId).forEach(m=>{
+      const key = m.pressenti.trim().toLowerCase();
+      if(!presMap[key]) presMap[key] = {name: m.pressenti.trim(), modules:[], formations:new Set()};
+      presMap[key].modules.push(m);
+      const f = d.formations.find(x=>x.id===m.formationId);
+      if(f){ presMap[key].formations.add(f.ecole); }
+    });
+    const presEntries = Object.values(presMap);
+    if(presEntries.length){
+      presEl.innerHTML = `<div class="card" style="padding:0;overflow:hidden;border-color:rgba(224,123,0,0.3)">
+        <div class="pressenti-section-title" style="padding:14px 18px;border-bottom:1px solid var(--border);margin-bottom:0">
+          🎯 Formateurs pressentis — à convertir (${presEntries.length} noms · ${presEntries.reduce((a,p)=>a+p.modules.length,0)} modules)
+        </div>
+        ${presEntries.map(p=>{
+          const isKnown = d.formateurs.find(f=>(f.prenom+' '+f.nom).toLowerCase()===p.name.toLowerCase());
+          const modList = p.modules.map(m=>{ const f=d.formations.find(x=>x.id===m.formationId); return `${m.nom}${f?' ('+f.nom+')':''}`;}).join(', ');
+          const ecoles = [...p.formations].map(e=>`<span class="badge badge-${SCHOOL_COLOR[e]||'gray'}">${e}</span>`).join(' ');
+          return `<div class="pressenti-card">
+            <div style="flex:1;min-width:0">
+              <div class="pressenti-name">🎯 ${p.name}${isKnown?` <span style="font-size:0.68rem;color:var(--success);font-weight:400">✅ déjà enregistré</span>`:''}</div>
+              <div class="pressenti-modules">${p.modules.length} module(s) : ${modList}</div>
+              <div class="pressenti-schools" style="margin-top:4px">${ecoles}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              ${!isKnown ? `<button class="btn btn-warning btn-sm" onclick="convertPressenti('${p.name.replace(/'/g,"\'")}')">+ Créer formateur</button>` : ''}
+              <button class="btn btn-primary btn-sm" onclick="openNewProcessFromPressenti('${p.name.replace(/'/g,"\'")}')">Lancer process →</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    } else {
+      presEl.innerHTML = '';
+    }
+  }
+
+  // Update tab badges
+  const fidsAll = d.formations.map(f=>f.id);
+  const noFmtCount = d.modules.filter(m=>fidsAll.includes(m.formationId)&&!m.formateurId&&!m.pressenti).length;
+  const presCount = Object.keys((() => {
+    const pm={};
+    d.modules.filter(m=>fidsAll.includes(m.formationId)&&m.pressenti&&!m.formateurId).forEach(m=>{pm[m.pressenti.trim().toLowerCase()]=1;});
+    return pm;
+  })()).length;
+  const b1=document.getElementById('fmt-badge-recruter');
+  const b2=document.getElementById('fmt-badge-pressentis');
+  const b3=document.getElementById('fmt-badge-liste');
+  if(b1) b1.textContent=noFmtCount;
+  if(b2) b2.textContent=presCount;
+  if(b3) b3.textContent=d.formateurs.length;
+
+  // ── Section 3: formateurs enregistrés ──
+  let items = d.formateurs.filter(f=>(`${f.prenom} ${f.nom}`).toLowerCase().includes(q)||(f.email||'').toLowerCase().includes(q)||(f.specialite||'').toLowerCase().includes(q));
+  if(schoolFilter!=='all') items = items.filter(f=>(f.ecoles||[]).includes(schoolFilter));
+  if(!items.length){ tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text2)">Aucun formateur enregistré</td></tr>`; return; }
+  tbody.innerHTML = items.map(f=>{
+    const mods = d.modules.filter(m=>m.formateurId===f.id).length;
+    const pressMods = d.modules.filter(m=>m.pressenti && (m.pressenti.toLowerCase()===(f.prenom+' '+f.nom).toLowerCase()) && !m.formateurId).length;
+    const ecoles = (f.ecoles||[]).map(e=>`<span class="badge badge-${SCHOOL_COLOR[e]}">${e}</span>`).join(' ');
+    return `<tr>
+      <td><div style="font-weight:500">${f.prenom} ${f.nom}</div>${pressMods?`<div style="font-size:0.72rem;color:#e07b00;margin-top:2px">🎯 ${pressMods} module(s) pressenti(s)</div>`:''}</td>
+      <td style="color:var(--text2);font-size:0.8rem">${f.email||'—'}</td>
+      <td style="font-size:0.8rem">${f.specialite||'—'}</td>
+      <td>${ecoles||'—'}</td>
+      <td style="text-align:center">${mods}</td>
+      <td>${f.type==='nouveau'?'<span class="badge badge-blue">Nouveau</span>':'<span class="badge badge-green">En poste</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="openModalFormateur('${f.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFormateur('${f.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openModalFormateur(id=''){
+  const d = load();
+  const f = id ? d.formateurs.find(x=>x.id===id) : null;
+  document.getElementById('mfmt-id').value = f?.id||'';
+  document.getElementById('mfmt-title').textContent = f?'Modifier':'Nouveau formateur';
+  document.getElementById('mfmt-prenom').value = f?.prenom||'';
+  document.getElementById('mfmt-nom').value = f?.nom||'';
+  document.getElementById('mfmt-email').value = f?.email||'';
+  document.getElementById('mfmt-tel').value = f?.tel||'';
+  document.getElementById('mfmt-specialite').value = f?.specialite||'';
+  document.getElementById('mfmt-type').value = f?.type||'existant';
+  document.getElementById('mfmt-notes').value = f?.notes||'';
+  const ecoles = f?.ecoles||[];
+  document.getElementById('mfmt-idrac').checked = ecoles.includes('IDRAC');
+  document.getElementById('mfmt-icl').checked = ecoles.includes('ICL');
+  document.getElementById('mfmt-iet').checked = ecoles.includes('IET');
+  openModal('modal-formateur');
+}
+
+function saveFormateur(){
+  const prenom = document.getElementById('mfmt-prenom').value.trim();
+  const nom = document.getElementById('mfmt-nom').value.trim();
+  if(!prenom||!nom) return alert('Prénom et nom requis');
+  const d = load();
+  const id = document.getElementById('mfmt-id').value||uid();
+  const ecoles = ['IDRAC','ICL','IET'].filter(e=>document.getElementById('mfmt-'+e.toLowerCase()).checked);
+  const obj = {id,prenom,nom,email:document.getElementById('mfmt-email').value,tel:document.getElementById('mfmt-tel').value,specialite:document.getElementById('mfmt-specialite').value,type:document.getElementById('mfmt-type').value,notes:document.getElementById('mfmt-notes').value,ecoles};
+  const idx = d.formateurs.findIndex(x=>x.id===id);
+  if(idx>=0) d.formateurs[idx]=obj; else d.formateurs.push(obj);
+  save(d); addActivity(`Formateur "${prenom} ${nom}" ${idx>=0?'modifié':'ajouté'}`);
+  closeModal('modal-formateur'); renderFormateurs();
+}
+
+function convertPressenti(name){
+  // Pre-fill formateur modal with pressenti name
+  const parts = name.trim().split(' ');
+  const prenom = parts[0]||'';
+  const nom = parts.slice(1).join(' ')||'';
+  openModalFormateur();
+  setTimeout(()=>{
+    document.getElementById('mfmt-prenom').value = prenom;
+    document.getElementById('mfmt-nom').value = nom;
+    document.getElementById('mfmt-type').value = 'nouveau';
+    document.getElementById('mfmt-title').textContent = 'Créer le formateur pressenti';
+  }, 50);
+}
+
+function openNewProcessFromPressenti(name){
+  // Find if formateur exists
+  const d = load();
+  const fmt = d.formateurs.find(f=>(f.prenom+' '+f.nom).toLowerCase()===name.toLowerCase());
+  if(!fmt){
+    if(confirm(`"${name}" n'est pas encore enregistré comme formateur. Voulez-vous le créer d'abord ?`)){
+      convertPressenti(name);
+    }
+    return;
+  }
+  // Get modules pressentis for this person
+  const mods = d.modules.filter(m=>m.pressenti && m.pressenti.toLowerCase()===name.toLowerCase() && !m.formateurId);
+  const modNames = mods.map(m=>m.nom).join(', ');
+  // Open new process modal pre-filled
+  const type = fmt.type==='nouveau' ? 'recrutement' : 'bilan';
+  openNewProcess(type);
+  setTimeout(()=>{
+    document.getElementById('mnp-formateur').value = fmt.id;
+    document.getElementById('mnp-modules').value = modNames;
+    document.getElementById('mnp-title').textContent = type==='recrutement' ? `Nouveau recrutement — ${name}` : `Nouveau bilan — ${name}`;
+  }, 50);
+}
+
+function deleteFormateur(id){
+  if(!confirm('Supprimer ce formateur ?')) return;
+  const d = load(); const f = d.formateurs.find(x=>x.id===id);
+  d.formateurs = d.formateurs.filter(x=>x.id!==id);
+  save(d); addActivity(`Formateur "${f?.prenom} ${f?.nom}" supprimé`); renderFormateurs();
+}
+
+// ============================================================
+// PROCESS
+// ============================================================
+function openNewProcess(type){
+  const d = load();
+  document.getElementById('mnp-type').value = type;
+  document.getElementById('mnp-title').textContent = type==='recrutement'?'Nouveau recrutement':'Nouveau bilan annuel';
+  const sel = document.getElementById('mnp-formateur');
+  sel.innerHTML = d.formateurs.length ? d.formateurs.map(f=>`<option value="${f.id}">${f.prenom} ${f.nom}</option>`).join('') : '<option value="">Créez d\'abord un formateur</option>';
+  document.getElementById('mnp-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('mnp-modules').value = '';
+  document.getElementById('mnp-notes').value = '';
+  document.getElementById('mnp-ecole').value = schoolFilter==='all'?'IDRAC':schoolFilter;
+  openModal('modal-new-process');
+}
+
+function saveNewProcess(){
+  const type = document.getElementById('mnp-type').value;
+  const fid = document.getElementById('mnp-formateur').value; if(!fid) return alert('Sélectionnez un formateur');
+  const d = load();
+  const fmt = d.formateurs.find(x=>x.id===fid);
+  const dateVal = document.getElementById('mnp-date').value;
+  const obj = {id:uid(),type,formateurId:fid,formateur:`${fmt?.prenom||''} ${fmt?.nom||''}`.trim(),ecole:document.getElementById('mnp-ecole').value,date:dateVal,modules:document.getElementById('mnp-modules').value,notes:document.getElementById('mnp-notes').value,stepIndex:0,stepDates:{},gedDone:{},createdAt:new Date().toLocaleDateString('fr-FR'),createdAtISO:new Date().toISOString()};
+  d.process.push(obj); save(d);
+  addActivity(`Suivi ${type} ouvert pour ${obj.formateur} (${obj.ecole})`);
+  closeModal('modal-new-process');
+  type==='recrutement'?renderRecrutements():renderBilans(); updateBadges();
+}
+
+function renderRecrutements(){
+  const d = load();
+  const filter = tabFilter.recrutements;
+  let items = d.process.filter(p=>p.type==='recrutement');
+  if(schoolFilter!=='all') items = items.filter(p=>p.ecole===schoolFilter);
+  if(filter==='en_cours') items = items.filter(p=>p.stepIndex<STEPS_REC.length);
+  if(filter==='finalises') items = items.filter(p=>p.stepIndex>=STEPS_REC.length);
+  renderProcessList('recrutements-list', items, STEPS_REC);
+}
+
+function renderBilans(){
+  const d = load();
+  const filter = tabFilter.bilans;
+  let items = d.process.filter(p=>p.type==='bilan');
+  if(schoolFilter!=='all') items = items.filter(p=>p.ecole===schoolFilter);
+  if(filter==='en_cours') items = items.filter(p=>p.stepIndex<STEPS_BIL.length);
+  if(filter==='finalises') items = items.filter(p=>p.stepIndex>=STEPS_BIL.length);
+  renderProcessList('bilans-list', items, STEPS_BIL);
+}
+
+function renderProcessList(containerId, items, steps){
+  const el = document.getElementById(containerId);
+  if(!items.length){ el.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Aucun enregistrement</p></div>'; return; }
+  el.innerHTML = items.map(p=>{
+    const done = p.stepIndex; const total = steps.length;
+    const pct = Math.round(done/total*100);
+    const fin = done>=total;
+    const curStep = fin?null:steps[done];
+    const prevKey = done>0?steps[done-1].key:null;
+    const lastDate = prevKey&&p.stepDates?.[prevKey+'_date']?p.stepDates[prevKey+'_date']:p.createdAtISO;
+    const days = daysSince(lastDate);
+    const isUrgent = !fin && days>7;
+    const col = SCHOOL_COLOR[p.ecole]||'blue';
+    return `<div class="card" style="margin-bottom:10px;border-color:${isUrgent?'rgba(255,92,74,0.4)':'var(--border)'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <span class="badge badge-${col}" style="margin-right:6px">${p.ecole||''}</span>
+          <span style="font-family:'Syne',sans-serif;font-weight:700">${p.formateur}</span>
+          ${p.modules?`<span style="font-size:0.76rem;color:var(--text2);margin-left:8px">📚 ${p.modules}</span>`:''}
+          ${isUrgent?`<span class="badge badge-orange" style="margin-left:8px">🔴 RELANCE ${days}j</span>`:''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${fin?'<span class="badge badge-green">✅ Finalisé</span>':`<span class="badge badge-yellow">Étape ${done+1}/${total}</span>`}
+          <button class="btn btn-primary btn-sm" onclick="openProcess('${p.id}')">Gérer →</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProcess('${p.id}')">🗑</button>
+        </div>
+      </div>
+      <div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:0.73rem;color:var(--text2);margin-bottom:3px">
+          <span>${fin?'Processus complet':curStep?.icon+' '+curStep?.label}</span><span>${pct}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill ${fin?'green':'blue'}" style="width:${pct}%"></div></div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--text3)">Créé le ${p.createdAt||'—'}${p.date?' · Entretien: '+p.date:''}</div>
+    </div>`;
+  }).join('');
+}
+
+function openProcess(id){
+  currentProcessId = id;
+  const d = load();
+  const p = d.process.find(x=>x.id===id); if(!p) return;
+  const steps = p.type==='recrutement'?STEPS_REC:STEPS_BIL;
+  const fin = p.stepIndex>=steps.length;
+  document.getElementById('mp-title').textContent = `${p.type==='recrutement'?'Recrutement':'Bilan'} — ${p.formateur} (${p.ecole||''})`;
+  const nextBtn = document.getElementById('mp-next-btn');
+  nextBtn.style.display = fin?'none':'inline-flex';
+  if(!fin) nextBtn.textContent = `Valider : ${steps[p.stepIndex].icon} ${steps[p.stepIndex].label} →`;
+
+  document.getElementById('mp-body').innerHTML = `
+    ${p.modules?`<div style="background:rgba(124,58,237,0.07);border:1px solid rgba(124,58,237,0.15);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:var(--accent)">📚 Modules : ${p.modules}</div>`:''}
+    <div class="process-steps">
+      ${steps.map((s,i)=>{
+        const isDone = i<p.stepIndex; const isCur = i===p.stepIndex;
+        const dateVal = p.stepDates?.[s.key+'_date']||'';
+        const noteVal = p.stepDates?.[s.key+'_note']||'';
+        const gedDone = p.gedDone?.[s.key]||false;
+        return `<div class="process-step">
+          <div class="step-line">
+            <div class="step-dot">${isDone?'✓':(i+1)}</div>
+            ${i<steps.length-1?`<div class="step-connector"></div>`:''}
+          </div>
+          <div class="step-content" id="scc-${i}-${p.id}">
+            <div class="step-name">${s.icon} ${s.label}</div>
+            <div class="step-desc">${s.desc}</div>
+            ${isDone&&dateVal?`<div class="step-date">Validé le ${dateVal}${noteVal?' · '+noteVal:''}</div>`:''}
+            ${isDone&&s.ged?`<div class="step-ged"><label class="checkbox-label ged-check ${gedDone?'checked':''}" style="width:fit-content;padding:5px 10px" onclick="toggleGed('${id}','${s.key}')"><input type="checkbox" ${gedDone?'checked':''} onchange="toggleGed('${id}','${s.key}')" onclick="event.stopPropagation()"> <span style="font-size:0.76rem">Documents mis dans la GED</span></label></div>`:''}
+            ${isCur?`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <input type="date" class="form-control" id="step-date-${i}" value="${new Date().toISOString().split('T')[0]}" style="width:160px">
+              <input type="text" class="form-control" id="step-note-${i}" placeholder="Note..." style="flex:1;min-width:160px">
+            </div>
+            ${s.ged?`<div class="step-ged"><label class="checkbox-label ged-check" style="width:fit-content;padding:5px 10px;margin-top:6px"><input type="checkbox" id="step-ged-cur"> <span style="font-size:0.76rem">Documents mis dans la GED</span></label></div>`:''}
+            `:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${fin?`<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.15);border-radius:8px;padding:12px 16px;margin-top:16px;color:var(--success);font-size:0.84rem">🎉 Processus complet pour ${p.formateur} !</div>`:''}`;
+  openModal('modal-process');
+  applyStepClasses(p);
+}
+
+function toggleGed(processId, stepKey){
+  const d = load(); const p = d.process.find(x=>x.id===processId); if(!p) return;
+  if(!p.gedDone) p.gedDone={};
+  p.gedDone[stepKey] = !p.gedDone[stepKey];
+  save(d); addActivity(`GED ${p.gedDone[stepKey]?'renseignée':'retirée'} — ${p.formateur} étape ${stepKey}`);
+  openProcess(processId);
+}
+
+
+function applyDynClasses(container) {
+  // Apply open/active classes to elements that couldn't use ternaries in template literals
+}
+
+function applyStepClasses(p) {
+  const steps = p.type==='recrutement'?STEPS_REC:STEPS_BIL;
+  steps.forEach((s,i) => {
+    const dot = document.getElementById('sd-'+i+'-'+p.id);
+    const conn = document.getElementById('sc-'+i+'-'+p.id);
+    const isDone = i < p.stepIndex;
+    const isCur = i === p.stepIndex;
+    const sc = document.getElementById('scc-'+i+'-'+p.id);
+    if(dot) { dot.className = 'step-dot' + (isDone?' done':isCur?' active':''); }
+    if(conn) { conn.className = 'step-connector' + (isDone?' done':''); }
+    if(sc) { sc.className = 'step-content' + (isDone?' done':isCur?' active-step':''); }
+  });
+}
+function advanceStep(){
+  if(!currentProcessId) return;
+  const d = load(); const p = d.process.find(x=>x.id===currentProcessId); if(!p) return;
+  const steps = p.type==='recrutement'?STEPS_REC:STEPS_BIL;
+  if(p.stepIndex>=steps.length) return;
+  const si = p.stepIndex;
+  const step = steps[si];
+  const dateInput = document.getElementById(`step-date-${si}`);
+  const noteInput = document.getElementById(`step-note-${si}`);
+  const gedInput = document.getElementById('step-ged-cur');
+  if(!p.stepDates) p.stepDates={};
+  if(!p.gedDone) p.gedDone={};
+  p.stepDates[step.key+'_date'] = dateInput?.value ? new Date(dateInput.value).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+  p.stepDates[step.key+'_date_iso'] = dateInput?.value||new Date().toISOString();
+  if(noteInput?.value) p.stepDates[step.key+'_note'] = noteInput.value;
+  if(step.ged && gedInput?.checked) p.gedDone[step.key] = true;
+  addActivity(`${p.formateur} (${p.ecole}) — ✅ ${step.icon} ${step.label}`);
+  p.stepIndex++;
+  save(d); openProcess(currentProcessId); updateBadges();
+  if(p.type==='recrutement') renderRecrutements(); else renderBilans();
+}
+
+function deleteProcess(id){
+  if(!confirm('Supprimer ce suivi ?')) return;
+  const d = load(); const p = d.process.find(x=>x.id===id);
+  d.process = d.process.filter(x=>x.id!==id);
+  save(d); addActivity(`Suivi ${p?.type} de ${p?.formateur} supprimé`);
+  if(p?.type==='recrutement') renderRecrutements(); else renderBilans(); updateBadges();
+}
+
+function switchTab(ctx, filter, el){
+  tabFilter[ctx]=filter;
+  document.querySelectorAll(`#page-${ctx} .tab`).forEach(t=>t.classList.remove('active')); el.classList.add('active');
+  ctx==='recrutements'?renderRecrutements():renderBilans();
+}
+
+// ============================================================
+// MODAL UTILS
+// ============================================================
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
+
+// ============================================================
+// SEED
+// ============================================================
+function seedDemo(){
+  const d = load();
+  if(d.formations.length) return;
+
+  const fi = [
+    {id:uid(),nom:'BTS NDRC 1',ecole:'IDRAC',niveau:'BTS',annee:'2024-2025',groupes:2,typeMaquette:'modules'},
+    {id:uid(),nom:'BTS NDRC 2',ecole:'IDRAC',niveau:'BTS',annee:'2024-2025',groupes:2,typeMaquette:'modules'},
+    {id:uid(),nom:'BTS MCO 1',ecole:'IDRAC',niveau:'BTS',annee:'2024-2025',groupes:2,typeMaquette:'modules'},
+    {id:uid(),nom:'MBA 1 MSC',ecole:'IDRAC',niveau:'Bac+5 MBA',annee:'2024-2025',groupes:1,typeMaquette:'blocs'},
+    {id:uid(),nom:'MBA 2 MSC',ecole:'IDRAC',niveau:'Bac+5 MBA',annee:'2024-2025',groupes:1,typeMaquette:'blocs'},
+    {id:uid(),nom:'MBA 1 MSM',ecole:'IDRAC',niveau:'Bac+5 MBA',annee:'2024-2025',groupes:1,typeMaquette:'blocs'},
+    {id:uid(),nom:'B3 RDC',ecole:'ICL',niveau:'Bac+3',annee:'2024-2025',groupes:1,typeMaquette:'blocs'},
+    {id:uid(),nom:'B3 RTC',ecole:'ICL',niveau:'Bac+3',annee:'2024-2025',groupes:1,typeMaquette:'blocs'},
+    {id:uid(),nom:'B3 QSE',ecole:'IET',niveau:'Bac+3',annee:'2024-2025',groupes:1,typeMaquette:'blocs'},
+  ];
+
+  const fmt = [
+    {id:uid(),prenom:'Sophie',nom:'Martin',email:'s.martin@idrac-lille.fr',specialite:'Marketing Digital',type:'existant',ecoles:['IDRAC']},
+    {id:uid(),prenom:'Marc',nom:'Dubois',email:'m.dubois@idrac-lille.fr',specialite:'Management Commercial',type:'existant',ecoles:['IDRAC','ICL']},
+    {id:uid(),prenom:'Léa',nom:'Rousseau',email:'l.rousseau@idrac-lille.fr',specialite:'Finance & Gestion',type:'nouveau',ecoles:['IDRAC']},
+    {id:uid(),prenom:'Yann',nom:'Bernard',email:'y.bernard@icl-lille.fr',specialite:'Qualité & RSE',type:'existant',ecoles:['ICL','IET']},
+  ];
+
+  // BTS NDRC 1 modules (direct)
+  const ndrc1 = fi[0];
+  const mods = [
+    {id:uid(),nom:'Communication commerciale',formationId:ndrc1.id,blocId:'',type:'cours',groupes:2,hg:24,hgpg:4,tice:6,stag:0,formateurId:fmt[0].id,statut:'planifie',periode:'Oct 2024'},
+    {id:uid(),nom:'Négociation B2B',formationId:ndrc1.id,blocId:'',type:'cours',groupes:2,hg:20,hgpg:0,tice:4,stag:2,formateurId:fmt[1].id,statut:'planifie',periode:'Nov 2024'},
+    {id:uid(),nom:'Évaluation Communication',formationId:ndrc1.id,blocId:'',type:'eval',groupes:2,hg:4,hgpg:0,tice:0,stag:0,formateurId:fmt[0].id,statut:'a_planifier',periode:'Déc 2024'},
+    {id:uid(),nom:'Gestion relation client',formationId:ndrc1.id,blocId:'',type:'cours',groupes:2,hg:18,hgpg:2,tice:4,stag:4,formateurId:'',statut:'a_planifier',periode:'Jan 2025'},
+  ];
+
+  // MBA 1 MSC blocs
+  const mba1 = fi[3];
+  const b1id = uid(), b2id = uid();
+  const blocs = [
+    {id:b1id,nom:'Management Stratégique',num:'Bloc 1',formationId:mba1.id},
+    {id:b2id,nom:'Finance & Performance',num:'Bloc 2',formationId:mba1.id},
+  ];
+  const modsMba = [
+    {id:uid(),nom:'Stratégie d\'entreprise',formationId:mba1.id,blocId:b1id,type:'cours',groupes:1,hg:30,hgpg:6,tice:8,stag:4,formateurId:fmt[1].id,statut:'planifie',periode:'Oct 2024'},
+    {id:uid(),nom:'Leadership & Management',formationId:mba1.id,blocId:b1id,type:'cours',groupes:1,hg:24,hgpg:4,tice:6,stag:2,formateurId:'',statut:'a_planifier',periode:'Nov 2024'},
+    {id:uid(),nom:'Évaluation Bloc 1',formationId:mba1.id,blocId:b1id,type:'eval',groupes:1,hg:6,hgpg:0,tice:0,stag:0,formateurId:fmt[1].id,statut:'a_planifier',periode:'Déc 2024'},
+    {id:uid(),nom:'Finance d\'entreprise',formationId:mba1.id,blocId:b2id,type:'cours',groupes:1,hg:24,hgpg:4,tice:6,stag:4,formateurId:fmt[2].id,statut:'planifie',periode:'Oct 2024'},
+    {id:uid(),nom:'Contrôle de gestion',formationId:mba1.id,blocId:b2id,type:'cours',groupes:1,hg:20,hgpg:0,tice:4,stag:2,formateurId:'',statut:'en_cours',periode:'Fév 2025'},
+  ];
+
+  // B3 QSE (IET)
+  const qse = fi[8];
+  const bq1 = uid(), bq2 = uid();
+  const blocsQse = [
+    {id:bq1,nom:'Qualité & Systèmes',num:'Bloc 1',formationId:qse.id},
+    {id:bq2,nom:'Environnement & RSE',num:'Bloc 2',formationId:qse.id},
+  ];
+  const modsQse = [
+    {id:uid(),nom:'Normes ISO 9001',formationId:qse.id,blocId:bq1,type:'cours',groupes:1,hg:20,hgpg:4,tice:8,stag:4,formateurId:fmt[3].id,statut:'planifie',periode:'Oct 2024'},
+    {id:uid(),nom:'Audit Qualité',formationId:qse.id,blocId:bq1,type:'cours',groupes:1,hg:16,hgpg:2,tice:4,stag:2,formateurId:'',statut:'a_planifier'},
+    {id:uid(),nom:'Management Environnemental',formationId:qse.id,blocId:bq2,type:'cours',groupes:1,hg:18,hgpg:4,tice:6,stag:2,formateurId:fmt[3].id,statut:'a_planifier'},
+  ];
+
+  // Processes
+  const twoDaysAgo = new Date(Date.now()-2*24*3600*1000).toISOString();
+  const tenDaysAgo = new Date(Date.now()-10*24*3600*1000).toISOString();
+  const proc = [
+    {id:uid(),type:'recrutement',formateurId:fmt[2].id,formateur:'Léa Rousseau',ecole:'IDRAC',date:'2024-09-15',modules:'Finance d\'entreprise, Contrôle de gestion',stepIndex:4,stepDates:{entretien_date:'15/09/2024',entretien_date_iso:tenDaysAgo,mail_entretien_date:'17/09/2024',mail_entretien_date_iso:tenDaysAgo,validation_module_date:'20/09/2024',validation_module_date_iso:tenDaysAgo,mail_dispo_date:'25/09/2024',mail_dispo_date_iso:tenDaysAgo},gedDone:{entretien:true,validation_module:false},createdAt:'15/09/2024',createdAtISO:tenDaysAgo},
+    {id:uid(),type:'bilan',formateurId:fmt[1].id,formateur:'Marc Dubois',ecole:'IDRAC',date:'2024-06-10',modules:'Négociation B2B, Management',stepIndex:3,stepDates:{entretien_date:'10/06/2024',entretien_date_iso:twoDaysAgo,mail_entretien_date:'12/06/2024',mail_entretien_date_iso:twoDaysAgo,validation_module_date:'15/06/2024',validation_module_date_iso:twoDaysAgo},gedDone:{entretien:true,validation_module:true},createdAt:'10/06/2024',createdAtISO:twoDaysAgo},
+  ];
+
+  d.formations = fi;
+  d.formateurs = fmt;
+  d.blocs = [...blocs, ...blocsQse];
+  d.modules = [...mods, ...modsMba, ...modsQse];
+  d.process = proc;
+  d.activity = [{id:uid(),msg:'Application initialisée avec les données IDRAC · ICL · IET',ts:new Date().toLocaleString('fr-FR')}];
+  save(d);
+}
+
+// seedDemo() est appelé par le moteur Firebase si la base est vide
+</script>
+
+<!-- ═══════════════════════════════════════════
+     MOTEUR FIREBASE — remplace localStorage
+════════════════════════════════════════════ -->
+<script>
+// ============================================================
+// 🔑 MOT DE PASSE — changez cette valeur
+// ============================================================
+const APP_PASSWORD = "idrac2023";
+
+// ── Connexion ──
+function checkLogin(){
+  const val = document.getElementById('login-pwd').value;
+  if(val === APP_PASSWORD){
+    sessionStorage.setItem('idrac_auth','1');
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-wrapper').style.display  = 'block';
+    initApp();
+  } else {
+    document.getElementById('login-error').textContent = 'Mot de passe incorrect.';
+    document.getElementById('login-pwd').value = '';
+  }
+}
+
+// ── Vérification au rechargement de page ──
+if(sessionStorage.getItem('idrac_auth')==='1'){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-wrapper').style.display  = 'block';
+}
+
+// ── Données en mémoire + synchro Firebase ──
+let _cache = { formations:[], blocs:[], modules:[], formateurs:[], process:[], activity:[] };
+let _fbReady = false;
+let _pendingSave = null;
+let _unsubscribe = null;
+
+function load(){ return JSON.parse(JSON.stringify(_cache)); }
+
+function save(d){
+  _cache = JSON.parse(JSON.stringify(d));
+  if(!_fbReady){ _pendingSave = d; return; }
+  const flat = {};
+  ['formations','blocs','modules','formateurs','process','activity'].forEach(k => flat[k] = d[k]||[]);
+  window._fbSet(window._fbRef0(), flat).catch(err => console.error('Firebase save error:', err));
+}
+
+function initApp(){
+  function start(){
+    _fbReady = true;
+    if(_pendingSave){ save(_pendingSave); _pendingSave = null; }
+
+    // Écoute les changements en temps réel (tous les collaborateurs)
+    _unsubscribe = window._fbOnValue(window._fbRef0(), (snapshot) => {
+      const data = snapshot.val();
+      if(data){
+        _cache = {
+          formations : data.formations  || [],
+          blocs      : data.blocs       || [],
+          modules    : data.modules     || [],
+          formateurs : data.formateurs  || [],
+          process    : data.process     || [],
+          activity   : data.activity    || [],
+        };
+      }
+      // Premier chargement : injecter les données démo si la base est vide
+      if(!data || !data.formations || data.formations.length === 0){
+        seedDemo();
+      }
+      // Rafraîchir l'interface pour tous
+      if(typeof renderPage === 'function') renderPage(currentPage || 'dashboard');
+      if(typeof updateBadges === 'function') updateBadges();
+    });
+  }
+
+  if(window._firebaseReady){ start(); }
+  else { window._onFirebaseReady = start; }
+}
+
+// Démarre si déjà authentifié
+if(sessionStorage.getItem('idrac_auth')==='1') initApp();
+</script>
+
+</div><!-- /app-wrapper -->
+</body>
+</html>
